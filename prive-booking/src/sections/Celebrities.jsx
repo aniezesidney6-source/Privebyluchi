@@ -15,7 +15,7 @@ export default function Celebrities() {
           {CELEBS.map((c, i) => (
             <div className="celeb" key={i}>
               <div className="celeb__pic">
-                {c.img ? <img src={c.img} alt={c.name} /> : <IconUser />}
+                {c.img ? <img src={c.img} alt={c.name} loading="lazy" decoding="async" /> : <IconUser />}
               </div>
               <b>{c.name}</b>
             </div>

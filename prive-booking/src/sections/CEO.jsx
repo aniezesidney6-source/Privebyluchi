@@ -11,7 +11,7 @@ export default function Ceo() {
       <div className="wrap">
         <div className="ceo">
           <div className="ceo__photo">
-            {CEO.photo ? <img src={CEO.photo} alt={CEO.name} /> : (
+            {CEO.photo ? <img src={CEO.photo} alt={CEO.name} loading="lazy" decoding="async" /> : (
               <div className="ceo__photo-ph"><IconUser style={{ margin: "0 auto" }} /><div>Portrait of {CEO.name.split(" ")[0]}</div></div>
             )}
             <div className="ceo__badge">

@@ -17,7 +17,7 @@ export default function Work() {
         <div className="work__rail">
           {WORKS.map((w, i) => (
             <figure className="work-card" key={i}>
-              {w.img ? <img src={w.img} alt={w.name} /> : (
+              {w.img ? <img src={w.img} alt={w.name} loading="lazy" decoding="async" /> : (
                 <div className="work-card__ph"><IconBloom /></div>
               )}
             </figure>

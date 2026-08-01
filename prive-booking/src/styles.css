@@ -105,16 +105,17 @@ h1, h2, h3, h4 { font-family: var(--head); font-weight: 600; line-height: 1.08; 
 .nav__burger { display: none; background: none; border: none; padding: 6px; color: var(--green); }
 .nav__burger svg { width: 26px; height: 26px; }
 
-@media (max-width: 900px) {
-  .nav__links, .nav__cta .pill { display: none; }
-  .nav__burger { display: block; }
-  .nav__mobile { display: block; }
-}
 .nav__mobile {
   display: none; border-top: 1px solid var(--line); background: var(--cream);
 }
 .nav__mobile a { display: block; padding: 15px 24px; font-size: 16px; font-weight: 500; border-bottom: 1px solid var(--line); }
 .nav__mobile .pill { margin: 16px 24px; width: calc(100% - 48px); }
+
+@media (max-width: 900px) {
+  .nav__links, .nav__cta .pill { display: none; }
+  .nav__burger { display: block; }
+  .nav__mobile { display: block; }
+}
 
 /* ============================================================
    HERO
@@ -397,3 +398,37 @@ h1, h2, h3, h4 { font-family: var(--head); font-weight: 600; line-height: 1.08; 
 
 /* date input calendar icon tint */
 input[type="date"]::-webkit-calendar-picker-indicator { cursor: pointer; opacity: .6; }
+
+/* ============================================================
+   MOBILE OPTIMISATION
+   ============================================================ */
+@media (max-width: 760px) {
+  /* tighter vertical rhythm */
+  .section { padding: 62px 0; }
+  .wrap { padding: 0 18px; }
+  .nav__inner { padding: 14px 18px; }
+
+  /* roses: keep them small and subtle so they never crowd content */
+  .rose { transform: scale(0.48); transform-origin: bottom center; opacity: 0.9; }
+
+  /* work carousel: one full card + a peek of the next */
+  .work__rail { grid-auto-columns: 76%; gap: 12px; }
+
+  /* booking flow */
+  .booking__panel { padding: 22px 16px; border-radius: 20px; }
+  .b-h2 { font-size: 21px; }
+  .steps__bar { width: 20px; margin: 0 3px 20px; }
+  .steps__dot { width: 30px; height: 30px; font-size: 13px; }
+  .steps__item span { font-size: 9px; letter-spacing: .06em; }
+  .service-grid { grid-template-columns: 1fr; }
+  .time-grid { grid-template-columns: repeat(3, 1fr); }
+  .pricebar { padding: 15px 16px; }
+  .pricebar .total { font-size: 21px; }
+  .b-actions { flex-direction: column-reverse; }
+  .b-actions .pill, .b-actions .pill.back { width: 100%; flex: none; }
+}
+
+@media (max-width: 420px) {
+  .rose { transform: scale(0.4); }
+  .time-grid { grid-template-columns: repeat(2, 1fr); }
+}
