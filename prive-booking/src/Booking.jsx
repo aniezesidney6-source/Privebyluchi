@@ -61,10 +61,13 @@ export default function Booking() {
 
   // Keep the top of the booking panel in view when the step changes, so the
   // shorter step 2/3/4 don't leave the user staring at the section below it.
+  // Compare the actual step value (not a "first render" flag) so React
+  // StrictMode's double-invoked mount effect can't scroll the page on load.
   const panelRef = useRef(null);
-  const firstRender = useRef(true);
+  const prevStep = useRef(step);
   useEffect(() => {
-    if (firstRender.current) { firstRender.current = false; return; }
+    if (prevStep.current === step) return; // mount / no real change
+    prevStep.current = step;
     const el = panelRef.current;
     if (!el) return;
     const y = el.getBoundingClientRect().top + window.scrollY - 90; // clear the sticky nav
