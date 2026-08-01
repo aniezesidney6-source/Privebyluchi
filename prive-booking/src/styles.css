@@ -371,6 +371,13 @@ h1, h2, h3, h4 { font-family: var(--head); font-weight: 600; line-height: 1.08; 
 .success h2 { font-size: 30px; margin-bottom: 8px; }
 .success p { color: var(--muted); font-size: 16px; margin-bottom: 14px; }
 .success .sig { color: var(--green); font-family: var(--head); margin-top: 20px; }
+.paycard { text-align: left; background: var(--pink-tint); border: 1px solid var(--pink-soft); border-radius: 16px; padding: 18px 20px; margin: 18px 0; }
+.paycard__label { font-size: 12px; letter-spacing: .1em; text-transform: uppercase; color: var(--pink-deep); font-weight: 600; margin-bottom: 10px; }
+.paycard__row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 7px 0; }
+.paycard__row span { color: var(--muted); font-size: 14px; }
+.paycard__row b { font-weight: 600; font-size: 15px; }
+.paycard__num { border: none; background: #fff; border-radius: 10px; padding: 8px 12px; font-family: var(--head); font-size: 18px; font-weight: 600; color: var(--green); letter-spacing: .04em; cursor: pointer; display: inline-flex; align-items: center; gap: 10px; }
+.paycard__num small { font-size: 11px; font-weight: 600; color: var(--pink-deep); background: var(--pink-tint); padding: 3px 7px; border-radius: 6px; }
 
 /* ============================================================
    FOOTER

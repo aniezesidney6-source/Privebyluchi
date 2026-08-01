@@ -30,6 +30,13 @@ export const CONTACT = {
   hours: "Appointments 9:00 AM – 4:00 PM · Mon – Sat",
 };
 
+// Deposit account
+export const BANK = {
+  bank: "Access Bank",
+  number: "1666059382",
+  name: "Luxurious Luchihairs",
+};
+
 export const whatsappLink = (msg = "Hi Privé by Luchi! I'd like to book a braiding appointment.") =>
   `https://wa.me/${CONTACT.whatsapp}?text=${encodeURIComponent(msg)}`;
 

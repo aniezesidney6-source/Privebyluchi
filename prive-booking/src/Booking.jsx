@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { SERVICES, EXTRAS, TIMES } from "./data";
-import { fmt, CONTACT } from "./theme";
-import { IconCheck, IconBloom } from "./Icons";
+import { fmt, BANK, whatsappLink } from "./theme";
+import { IconCheck, IconBloom, IconWhatsapp } from "./Icons";
 
 const SUPABASE_URL = "https://vsabwbuzwhxfwqjpiyvs.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZzYWJ3YnV6d2h4ZndxanBpeXZzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY3Nzk5MjQsImV4cCI6MjA5MjM1NTkyNH0.So0iq2E58JGBi7DLujGsFp6d_NV3doM0d_dxy7OgzFw";
@@ -51,6 +51,25 @@ export default function Booking() {
   const [bookedDates, setBookedDates] = useState([]);
   const [datesLoaded, setDatesLoaded] = useState(false);
   const [dateError, setDateError] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const copyAcct = () => {
+    navigator.clipboard?.writeText(BANK.number)
+      .then(() => { setCopied(true); setTimeout(() => setCopied(false), 1800); })
+      .catch(() => {});
+  };
+
+  // Keep the top of the booking panel in view when the step changes, so the
+  // shorter step 2/3/4 don't leave the user staring at the section below it.
+  const panelRef = useRef(null);
+  const firstRender = useRef(true);
+  useEffect(() => {
+    if (firstRender.current) { firstRender.current = false; return; }
+    const el = panelRef.current;
+    if (!el) return;
+    const y = el.getBoundingClientRect().top + window.scrollY - 90; // clear the sticky nav
+    window.scrollTo({ top: y, behavior: "smooth" });
+  }, [step]);
 
   const fetchBookedDates = async () => {
     setDatesLoaded(true);
@@ -152,10 +171,34 @@ Notes: ${form.notes || "None"}
                 {isButterfly && variant ? ` (${variant})` : ""} on <b style={{ color: "var(--green)" }}>{date} at {time}</b> has been received.
               </p>
               <p>
-                A deposit of <b style={{ color: "var(--pink-deep)" }}>{fmt(deposit)}</b> confirms your appointment, we'll message you
-                shortly with payment details and to confirm travel logistics to your address.
+                To lock in your appointment, pay your <b style={{ color: "var(--pink-deep)" }}>{fmt(deposit)}</b> deposit (30%) to the account below, then send us your proof of payment.
               </p>
-              <p className="sig">With love, Privé by Luchi</p>
+
+              <div className="paycard">
+                <div className="paycard__label">Deposit · {fmt(deposit)}</div>
+                <div className="paycard__row"><span>Bank</span><b>{BANK.bank}</b></div>
+                <div className="paycard__row">
+                  <span>Account Number</span>
+                  <button type="button" className="paycard__num" onClick={copyAcct} title="Tap to copy">
+                    {BANK.number} <small>{copied ? "Copied ✓" : "Copy"}</small>
+                  </button>
+                </div>
+                <div className="paycard__row"><span>Account Name</span><b>{BANK.name}</b></div>
+              </div>
+
+              <a
+                className="pill pill--green"
+                style={{ width: "100%" }}
+                href={whatsappLink(`Hi Privé by Luchi! I've paid the ${fmt(deposit)} deposit for my ${service?.name} booking on ${date} at ${time}. Here's my proof of payment.`)}
+                target="_blank" rel="noreferrer"
+              >
+                <IconWhatsapp style={{ width: 18, height: 18 }} /> Send Proof of Payment
+              </a>
+
+              <p style={{ fontSize: 13, color: "var(--muted)", marginTop: 14 }}>
+                Your slot is confirmed once we receive your deposit. We'll also confirm travel logistics to your address.
+              </p>
+              <p className="sig">Thank you for choosing us 🤭💕 — Privé by Luchi</p>
             </div>
           </div>
         </div>
@@ -169,10 +212,10 @@ Notes: ${form.notes || "None"}
         <div className="section-head" style={{ textAlign: "center", margin: "0 auto 40px" }}>
           <div className="eyebrow" style={{ display: "inline-flex" }}>Book Your Appointment</div>
           <h2>Reserve your chair, we come to you</h2>
-          <p style={{ margin: "0 auto" }}>A mobile studio serving {CONTACT.base} and beyond. Pick your style, choose a date, and we'll bring the salon to your door.</p>
+          <p style={{ margin: "0 auto" }}>A mobile studio serving Lagos and other states. Pick your style, choose a date, and we'll bring the salon to your door.</p>
         </div>
 
-        <div className="booking__panel">
+        <div className="booking__panel" ref={panelRef} style={{ scrollMarginTop: 90 }}>
           <Steps step={step} />
 
           {/* STEP 1 — SERVICE */}
