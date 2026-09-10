@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
+import { ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, CartesianGrid, Legend, PieChart, Pie, Cell } from "recharts";
 
 const PINK = "#E85A8A", PINK_DEEP = "#C63E6C", PINK_TINT = "#FFF4F8";
 const GREEN = "#1E4D3E", CREAM = "#FFFBF9", INK = "#26201F", MUTED = "#7A6E70", LINE = "#EFE3E8";
@@ -47,21 +47,25 @@ function labelFor(date, unit) {
   if (unit === "month") return date.toLocaleDateString("en-NG", { month: "short" });
   return String(date.getFullYear());
 }
-function buildSeries(visits, period) {
+function buildSeries(visits, bookings, period) {
   const { n, unit } = period;
   const now = startOf(new Date(), unit);
   const buckets = [], index = {};
   for (let i = n - 1; i >= 0; i--) {
     const start = shift(now, unit, -i);
     index[start.getTime()] = buckets.length;
-    buckets.push({ label: labelFor(start, unit), visits: 0 });
+    buckets.push({ label: labelFor(start, unit), visits: 0, bookings: 0 });
   }
-  for (const v of visits) {
-    const t = new Date(v.created_at);
-    if (isNaN(t)) continue;
-    const key = startOf(t, unit).getTime();
-    if (key in index) buckets[index[key]].visits++;
-  }
+  const tally = (items, getDate, field) => {
+    for (const it of items) {
+      const t = new Date(getDate(it));
+      if (isNaN(t)) continue;
+      const key = startOf(t, unit).getTime();
+      if (key in index) buckets[index[key]][field]++;
+    }
+  };
+  tally(visits, (v) => v.created_at, "visits");
+  tally(bookings, (b) => b.created_at || b.date, "bookings"); // by when the booking was made
   return buckets;
 }
 function countSince(visits, unit) {
@@ -104,9 +108,56 @@ function TopList({ title, rows }) {
   );
 }
 
-function VisitorAnalytics({ visits, loading }) {
+function DeviceDonut({ visits }) {
+  const data = useMemo(() => {
+    let mobile = 0, desktop = 0;
+    for (const v of visits) (v.device === "Mobile" ? mobile++ : desktop++);
+    return [
+      { name: "Mobile", value: mobile, color: PINK },
+      { name: "Desktop", value: desktop, color: GREEN },
+    ];
+  }, [visits]);
+  const total = data.reduce((a, d) => a + d.value, 0);
+
+  return (
+    <div style={{ background: "#fff", border: `1px solid ${LINE}`, borderRadius: 16, padding: "18px 20px", flex: 1, minWidth: 240 }}>
+      <div style={{ fontFamily: HEAD, fontSize: 15, fontWeight: 600, color: GREEN, marginBottom: 10 }}>Device</div>
+      {total === 0 ? (
+        <p style={{ color: MUTED, fontSize: 13 }}>No data yet.</p>
+      ) : (
+        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+          <div style={{ width: 116, height: 116, position: "relative" }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie data={data} dataKey="value" innerRadius={34} outerRadius={54} paddingAngle={2} stroke="none" startAngle={90} endAngle={-270}>
+                  {data.map((d) => <Cell key={d.name} fill={d.color} />)}
+                </Pie>
+              </PieChart>
+            </ResponsiveContainer>
+            <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", pointerEvents: "none" }}>
+              <div style={{ fontFamily: HEAD, fontSize: 20, fontWeight: 600, color: INK }}>{total}</div>
+              <div style={{ fontSize: 10, color: MUTED }}>visits</div>
+            </div>
+          </div>
+          <div>
+            {data.map((d) => (
+              <div key={d.name} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 9, fontSize: 13 }}>
+                <span style={{ width: 10, height: 10, borderRadius: 3, background: d.color, flexShrink: 0 }} />
+                <span style={{ color: INK, minWidth: 58 }}>{d.name}</span>
+                <b style={{ color: INK }}>{d.value}</b>
+                <span style={{ color: MUTED }}>{Math.round((d.value / total) * 100)}%</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function VisitorAnalytics({ visits, bookings, loading }) {
   const [period, setPeriod] = useState(PERIODS[1]); // Day
-  const series = useMemo(() => buildSeries(visits, period), [visits, period]);
+  const series = useMemo(() => buildSeries(visits, bookings, period), [visits, bookings, period]);
   const locations = useMemo(() => topBy(visits, (v) => [v.city, v.country].filter(Boolean).join(", ")), [visits]);
   const sources = useMemo(() => topBy(visits, (v) => v.source), [visits]);
 
@@ -142,23 +193,27 @@ function VisitorAnalytics({ visits, loading }) {
             <p style={{ color: MUTED, fontSize: 14 }}>No visits recorded yet. They'll appear here in real time.</p>
           </div>
         ) : (
-          <ResponsiveContainer width="100%" height={260}>
-            <BarChart data={series} margin={{ top: 8, right: 8, left: -18, bottom: 0 }}>
+          <ResponsiveContainer width="100%" height={270}>
+            <ComposedChart data={series} margin={{ top: 8, right: 4, left: -18, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={LINE} />
               <XAxis dataKey="label" tick={{ fontSize: 11, fill: MUTED }} interval="preserveStartEnd" tickLine={false} axisLine={{ stroke: LINE }} />
-              <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: MUTED }} width={34} tickLine={false} axisLine={false} />
+              <YAxis yAxisId="v" allowDecimals={false} tick={{ fontSize: 11, fill: MUTED }} width={34} tickLine={false} axisLine={false} />
+              <YAxis yAxisId="b" orientation="right" allowDecimals={false} tick={{ fontSize: 11, fill: GREEN }} width={28} tickLine={false} axisLine={false} />
               <Tooltip
                 cursor={{ fill: PINK_TINT }}
                 contentStyle={{ borderRadius: 12, border: `1px solid ${LINE}`, fontFamily: BODY, fontSize: 13 }}
                 labelStyle={{ color: GREEN, fontWeight: 600 }}
               />
-              <Bar dataKey="visits" fill={PINK} radius={[6, 6, 0, 0]} maxBarSize={46} />
-            </BarChart>
+              <Legend wrapperStyle={{ fontSize: 12, fontFamily: BODY, paddingTop: 4 }} iconType="circle" iconSize={9} />
+              <Bar yAxisId="v" name="Visits" dataKey="visits" fill={PINK} radius={[6, 6, 0, 0]} maxBarSize={46} />
+              <Line yAxisId="b" name="Bookings" dataKey="bookings" stroke={GREEN} strokeWidth={2.5} dot={{ r: 3, fill: GREEN }} activeDot={{ r: 5 }} />
+            </ComposedChart>
           </ResponsiveContainer>
         )}
       </div>
 
       <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginTop: 16 }}>
+        <DeviceDonut visits={visits} />
         <TopList title="Where they came from" rows={sources} />
         <TopList title="Top locations" rows={locations} />
       </div>
@@ -255,7 +310,7 @@ export default function AdminDashboard() {
       </div>
 
       <div style={{ maxWidth: 720, margin: "0 auto", padding: "32px 20px 60px" }}>
-        <VisitorAnalytics visits={visits} loading={visitsLoading} />
+        <VisitorAnalytics visits={visits} bookings={bookings} loading={visitsLoading} />
 
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 22 }}>
           <div style={{ fontFamily: HEAD, fontSize: 20, fontWeight: 600 }}>
