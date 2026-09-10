@@ -1,7 +1,9 @@
 import { VIDEOS } from "../data";
 import { IconPlay } from "../Icons";
+import { useContent } from "../content";
 
 export default function Videos() {
+  const videos = useContent("video", VIDEOS, (r) => ({ title: r.title, src: r.media_url, poster: null }));
   return (
     <section className="section section--pink" id="videos">
       <div className="rose rose--flip" style={{ right: "-28px", width: "175px", opacity: 0.92 }}>
@@ -15,7 +17,7 @@ export default function Videos() {
         </div>
 
         <div className="video-grid">
-          {VIDEOS.map((v, i) => (
+          {videos.map((v, i) => (
             <div className="video-card" key={i}>
               <div className="video-card__frame">
                 {v.src ? (

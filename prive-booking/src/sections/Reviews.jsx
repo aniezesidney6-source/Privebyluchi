@@ -1,7 +1,9 @@
 import { REVIEWS } from "../data";
 import { IconWhatsapp } from "../Icons";
+import { useContent } from "../content";
 
 export default function Reviews() {
+  const reviews = useContent("review", REVIEWS, (row) => ({ name: row.title, shot: row.media_url }));
   return (
     <section className="section" id="reviews">
       <div className="wrap">
@@ -12,7 +14,7 @@ export default function Reviews() {
         </div>
 
         <div className="review-grid">
-          {REVIEWS.map((r, i) => (
+          {reviews.map((r, i) => (
             <figure className="review-shot" key={i}>
               <img src={r.shot} alt={`WhatsApp review from ${r.name}`} loading="lazy" />
               <figcaption><IconWhatsapp /> {r.name} · via WhatsApp</figcaption>

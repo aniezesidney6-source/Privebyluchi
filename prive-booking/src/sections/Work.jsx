@@ -1,7 +1,9 @@
 import { WORKS } from "../data";
 import { IconBloom } from "../Icons";
+import { useContent } from "../content";
 
 export default function Work() {
+  const works = useContent("work", WORKS, (r) => ({ name: r.title, img: r.media_url }));
   return (
     <section className="section" id="work">
       <div className="rose" style={{ left: "-24px", width: "150px", opacity: 0.9 }}>
@@ -15,7 +17,7 @@ export default function Work() {
         </div>
 
         <div className="work__rail">
-          {WORKS.map((w, i) => (
+          {works.map((w, i) => (
             <figure className="work-card" key={i}>
               {w.img ? <img src={w.img} alt={w.name} loading="lazy" decoding="async" /> : (
                 <div className="work-card__ph"><IconBloom /></div>
@@ -23,7 +25,7 @@ export default function Work() {
             </figure>
           ))}
         </div>
-        <div className="rail-hint">Scroll / swipe to see all {WORKS.length} looks</div>
+        <div className="rail-hint">Scroll / swipe to see all {works.length} looks</div>
       </div>
     </section>
   );

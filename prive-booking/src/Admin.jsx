@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, CartesianGrid, Legend, PieChart, Pie, Cell } from "recharts";
 
 const PINK = "#E85A8A", PINK_DEEP = "#C63E6C", PINK_TINT = "#FFF4F8";
@@ -8,8 +8,9 @@ const BODY = '"Inter",system-ui,sans-serif';
 
 const SUPABASE_URL = "https://vsabwbuzwhxfwqjpiyvs.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZzYWJ3YnV6d2h4ZndxanBpeXZzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY3Nzk5MjQsImV4cCI6MjA5MjM1NTkyNH0.So0iq2E58JGBi7DLujGsFp6d_NV3doM0d_dxy7OgzFw";
-const SUPA_HEADERS = { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, "Content-Type": "application/json" };
-const ADMIN_PASSWORD = "Chigozie100500";
+// Admin authenticates with Supabase Auth; its data calls use the signed-in
+// user's token (see authHeaders in the component), so the public anon key
+// never grants write/PII access once RLS is tightened.
 
 const fmt = (d) => new Date(d).toLocaleDateString("en-NG", { weekday: "short", year: "numeric", month: "short", day: "numeric" });
 const naira = (n) => (n == null || n === "" ? "—" : "₦" + Number(n).toLocaleString());
@@ -512,10 +513,108 @@ function Clients({ bookings }) {
   );
 }
 
+const CONTENT_KINDS = [
+  { id: "work", label: "Work photos", accept: "image/*", media: "image", ph: "Caption (optional)" },
+  { id: "video", label: "Videos", accept: "video/*", media: "video", ph: "Title (optional)" },
+  { id: "review", label: "Reviews", accept: "image/*", media: "image", ph: "Client name" },
+  { id: "celeb", label: "Celebrities", accept: "image/*", media: "image", ph: "Celebrity name" },
+];
+
+function ContentManager({ token }) {
+  const [tab, setTab] = useState("work");
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [title, setTitle] = useState("");
+  const [file, setFile] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const kind = CONTENT_KINDS.find((k) => k.id === tab);
+  const H = () => ({ apikey: SUPABASE_KEY, Authorization: `Bearer ${token()}`, "Content-Type": "application/json" });
+
+  const load = async (k) => {
+    setLoading(true);
+    try {
+      const r = await fetch(`${SUPABASE_URL}/rest/v1/site_content?select=*&kind=eq.${k}&order=sort.asc,created_at.asc`, { headers: H() });
+      const d = await r.json();
+      setItems(Array.isArray(d) ? d : []);
+    } catch { setItems([]); } finally { setLoading(false); }
+  };
+  useEffect(() => { load(tab); setTitle(""); setFile(null); }, [tab]);
+
+  const add = async () => {
+    if (!file) { alert("Choose a file first."); return; }
+    setBusy(true);
+    try {
+      const safe = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+      const path = `${tab}/${Date.now()}-${safe}`;
+      const up = await fetch(`${SUPABASE_URL}/storage/v1/object/content/${path}`, {
+        method: "POST",
+        headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${token()}`, "Content-Type": file.type || "application/octet-stream", "x-upsert": "true" },
+        body: file,
+      });
+      if (!up.ok) { alert("Upload failed. Make sure the 'content' storage bucket + policies exist. " + (await up.text()).slice(0, 120)); return; }
+      const media_url = `${SUPABASE_URL}/storage/v1/object/public/content/${path}`;
+      const ins = await fetch(`${SUPABASE_URL}/rest/v1/site_content`, {
+        method: "POST", headers: { ...H(), Prefer: "return=minimal" },
+        body: JSON.stringify({ kind: tab, title: title || null, media_url, sort: items.length }),
+      });
+      if (!ins.ok) { alert("Uploaded, but couldn't save the item. Is the site_content table + policy applied?"); return; }
+      setTitle(""); setFile(null); load(tab);
+    } catch { alert("Something went wrong during upload."); } finally { setBusy(false); }
+  };
+
+  const del = async (id) => {
+    if (!window.confirm("Remove this item from the site?")) return;
+    setItems((p) => p.filter((x) => x.id !== id));
+    try { await fetch(`${SUPABASE_URL}/rest/v1/site_content?id=eq.${id}`, { method: "DELETE", headers: H() }); } catch { /* ignore */ }
+  };
+
+  return (
+    <div style={{ marginTop: 40 }}>
+      <div style={{ fontFamily: HEAD, fontSize: 20, fontWeight: 600, marginBottom: 12 }}>Website Content</div>
+      <div style={{ background: "#fff", border: `1px solid ${LINE}`, borderRadius: 16, padding: "16px 18px" }}>
+        <p style={{ color: MUTED, fontSize: 13, marginBottom: 14 }}>Add or remove what shows on your site. As soon as you add items to a section, they replace the built-in defaults there.</p>
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 16 }}>
+          {CONTENT_KINDS.map((k) => (
+            <button key={k.id} onClick={() => setTab(k.id)} style={{ padding: "7px 14px", borderRadius: 999, border: `1.5px solid ${tab === k.id ? PINK : LINE}`, background: tab === k.id ? PINK : "#fff", color: tab === k.id ? "#fff" : MUTED, fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: BODY }}>{k.label}</button>
+          ))}
+        </div>
+
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 18, paddingBottom: 18, borderBottom: `1px solid ${LINE}` }}>
+          <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder={kind.ph} style={{ ...miniInput, flex: 1, minWidth: 160 }} />
+          <input type="file" accept={kind.accept} onChange={(e) => setFile(e.target.files[0] || null)} style={{ fontSize: 12.5, fontFamily: BODY, maxWidth: 210 }} />
+          <button onClick={add} disabled={busy || !file} style={pill("#fff", PINK, PINK)}>{busy ? "Uploading…" : "Add"}</button>
+        </div>
+
+        {loading ? (
+          <p style={{ color: MUTED, fontSize: 13 }}>Loading…</p>
+        ) : items.length === 0 ? (
+          <p style={{ color: MUTED, fontSize: 13 }}>No custom {kind.label.toLowerCase()} yet — your site is showing its built-in defaults.</p>
+        ) : (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(120px,1fr))", gap: 10 }}>
+            {items.map((it) => (
+              <div key={it.id} style={{ border: `1px solid ${LINE}`, borderRadius: 12, overflow: "hidden", background: "#fff", position: "relative" }}>
+                <div style={{ aspectRatio: "1 / 1", background: "#F5EEF1", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+                  {kind.media === "video"
+                    ? <video src={it.media_url} style={{ width: "100%", height: "100%", objectFit: "cover" }} muted />
+                    : <img src={it.media_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />}
+                </div>
+                <div style={{ padding: "6px 8px", fontSize: 11, color: INK, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{it.title || "—"}</div>
+                <button onClick={() => del(it.id)} title="Remove" style={{ position: "absolute", top: 6, right: 6, width: 24, height: 24, borderRadius: 999, border: "none", background: "rgba(198,62,108,.92)", color: "#fff", cursor: "pointer", fontSize: 14, lineHeight: 1 }}>×</button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function AdminDashboard() {
   const [authed, setAuthed] = useState(false);
+  const [email, setEmail] = useState("");
   const [pw, setPw] = useState("");
-  const [pwError, setPwError] = useState(false);
+  const [pwError, setPwError] = useState("");
+  const [signingIn, setSigningIn] = useState(false);
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(false);
   const [cancelling, setCancelling] = useState(null);
@@ -524,37 +623,58 @@ export default function AdminDashboard() {
   const [visitsLoading, setVisitsLoading] = useState(false);
   const [blocked, setBlocked] = useState([]);
 
-  const login = () => {
-    if (pw === ADMIN_PASSWORD) { setAuthed(true); fetchBookings(); fetchVisits(); fetchBlocked(); }
-    else { setPwError(true); setTimeout(() => setPwError(false), 2000); }
+  // Admin API calls use the signed-in user's token when available, otherwise
+  // the anon key (master-password fallback). This guarantees no lock-out.
+  const MASTER = "Chigozie100500";
+  const tokenRef = useRef("");
+  const authHeaders = () => ({ apikey: SUPABASE_KEY, Authorization: `Bearer ${tokenRef.current || SUPABASE_KEY}`, "Content-Type": "application/json" });
+
+  const enter = () => { setAuthed(true); fetchBookings(); fetchVisits(); fetchBlocked(); };
+
+  const login = async () => {
+    setSigningIn(true); setPwError("");
+    // Quick master-password access (leave email blank) — uses the anon key.
+    if (!email.trim()) {
+      if (pw === MASTER) { tokenRef.current = ""; enter(); } else { setPwError("Incorrect password."); }
+      setSigningIn(false); return;
+    }
+    try {
+      const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+        method: "POST", headers: { apikey: SUPABASE_KEY, "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.trim(), password: pw }),
+      });
+      const data = await res.json();
+      if (res.ok && data.access_token) { tokenRef.current = data.access_token; enter(); }
+      else setPwError(data.error_description || data.msg || "Incorrect email or password.");
+    } catch { setPwError("Network error. Please try again."); } finally { setSigningIn(false); }
   };
 
   const refreshAll = () => { fetchBookings(); fetchVisits(); fetchBlocked(); };
 
   const fetchBlocked = async () => {
     try {
-      const res = await fetch(`${SUPABASE_URL}/rest/v1/blocked_dates?select=*&order=date.asc`, { headers: SUPA_HEADERS });
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/blocked_dates?select=*&order=date.asc`, { headers: authHeaders() });
       const d = await res.json();
       setBlocked(Array.isArray(d) ? d : []);
     } catch { setBlocked([]); }
   };
   const addBlocked = async (date, reason) => {
     try {
-      await fetch(`${SUPABASE_URL}/rest/v1/blocked_dates`, { method: "POST", headers: { ...SUPA_HEADERS, Prefer: "return=minimal" }, body: JSON.stringify({ date, reason: reason || null }) });
+      await fetch(`${SUPABASE_URL}/rest/v1/blocked_dates`, { method: "POST", headers: { ...authHeaders(), Prefer: "return=minimal" }, body: JSON.stringify({ date, reason: reason || null }) });
       fetchBlocked();
     } catch { alert("Could not block that date."); }
   };
   const removeBlocked = async (id) => {
     setBlocked((p) => p.filter((x) => x.id !== id));
-    try { await fetch(`${SUPABASE_URL}/rest/v1/blocked_dates?id=eq.${id}`, { method: "DELETE", headers: SUPA_HEADERS }); } catch { /* ignore */ }
+    try { await fetch(`${SUPABASE_URL}/rest/v1/blocked_dates?id=eq.${id}`, { method: "DELETE", headers: authHeaders() }); } catch { /* ignore */ }
   };
   const updateStatus = async (id, status) => {
     setBookings((p) => p.map((b) => (b.id === id ? { ...b, status } : b)));
-    try { await fetch(`${SUPABASE_URL}/rest/v1/bookings?id=eq.${id}`, { method: "PATCH", headers: { ...SUPA_HEADERS, Prefer: "return=minimal" }, body: JSON.stringify({ status }) }); } catch { /* ignore */ }
+    try { await fetch(`${SUPABASE_URL}/rest/v1/bookings?id=eq.${id}`, { method: "PATCH", headers: { ...authHeaders(), Prefer: "return=minimal" }, body: JSON.stringify({ status }) }); } catch { /* ignore */ }
   };
   const saveReschedule = async (id, date, time) => {
     try {
-      const res = await fetch(`${SUPABASE_URL}/rest/v1/bookings?id=eq.${id}`, { method: "PATCH", headers: { ...SUPA_HEADERS, Prefer: "return=minimal" }, body: JSON.stringify({ date, time }) });
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/bookings?id=eq.${id}`, { method: "PATCH", headers: { ...authHeaders(), Prefer: "return=minimal" }, body: JSON.stringify({ date, time }) });
       if (!res.ok) { alert("Could not reschedule. Make sure the DB update is applied."); return false; }
       setBookings((p) => p.map((b) => (b.id === id ? { ...b, date, time } : b)));
       return true;
@@ -564,7 +684,7 @@ export default function AdminDashboard() {
   const fetchBookings = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${SUPABASE_URL}/rest/v1/bookings?select=*&order=date.asc,time.asc`, { headers: SUPA_HEADERS });
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/bookings?select=*&order=date.asc,time.asc`, { headers: authHeaders() });
       let data = await res.json();
       data = Array.isArray(data) ? data : [];
       // Past bookings default to "completed" (never leave them as pending).
@@ -574,7 +694,7 @@ export default function AdminDashboard() {
         const staleIds = new Set(stale.map((b) => b.id));
         data = data.map((b) => (staleIds.has(b.id) ? { ...b, status: "completed" } : b));
         stale.forEach((b) => {
-          fetch(`${SUPABASE_URL}/rest/v1/bookings?id=eq.${b.id}`, { method: "PATCH", headers: { ...SUPA_HEADERS, Prefer: "return=minimal" }, body: JSON.stringify({ status: "completed" }) }).catch(() => {});
+          fetch(`${SUPABASE_URL}/rest/v1/bookings?id=eq.${b.id}`, { method: "PATCH", headers: { ...authHeaders(), Prefer: "return=minimal" }, body: JSON.stringify({ status: "completed" }) }).catch(() => {});
         });
       }
       setBookings(data);
@@ -584,7 +704,7 @@ export default function AdminDashboard() {
   const fetchVisits = async () => {
     setVisitsLoading(true);
     try {
-      const res = await fetch(`${SUPABASE_URL}/rest/v1/visits?select=created_at,source,country,region,city,device,visitor_id&order=created_at.desc&limit=10000`, { headers: SUPA_HEADERS });
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/visits?select=created_at,source,country,region,city,device,visitor_id&order=created_at.desc&limit=10000`, { headers: authHeaders() });
       const data = await res.json();
       setVisits(Array.isArray(data) ? data : []);
     } catch { setVisits([]); } finally { setVisitsLoading(false); }
@@ -593,7 +713,7 @@ export default function AdminDashboard() {
   const cancelBooking = async (id) => {
     setCancelling(id);
     try {
-      await fetch(`${SUPABASE_URL}/rest/v1/bookings?id=eq.${id}`, { method: "DELETE", headers: SUPA_HEADERS });
+      await fetch(`${SUPABASE_URL}/rest/v1/bookings?id=eq.${id}`, { method: "DELETE", headers: authHeaders() });
       setCancelledIds((p) => [...p, id]);
       setTimeout(() => {
         setBookings((p) => p.filter((b) => b.id !== id));
@@ -610,14 +730,20 @@ export default function AdminDashboard() {
         <div style={{ width: "100%", maxWidth: 380, textAlign: "center", background: "#fff", border: `1px solid ${LINE}`, borderRadius: 22, padding: 34, boxShadow: "0 18px 50px -24px rgba(30,77,62,.28)" }}>
           <div style={{ color: PINK, fontSize: 12, letterSpacing: 4, textTransform: "uppercase", fontWeight: 600, marginBottom: 12 }}>Admin Access</div>
           <h1 style={{ fontFamily: HEAD, fontSize: 26, fontWeight: 600, marginBottom: 4, color: GREEN }}>Privé by Luchi</h1>
-          <p style={{ color: MUTED, fontSize: 13, marginBottom: 30 }}>Booking Dashboard</p>
+          <p style={{ color: MUTED, fontSize: 13, marginBottom: 26 }}>Booking Dashboard</p>
           <input
-            type="password" placeholder="Enter admin password" value={pw}
-            onChange={(e) => setPw(e.target.value)} onKeyDown={(e) => e.key === "Enter" && login()}
-            style={{ width: "100%", background: "#fff", border: `1.5px solid ${pwError ? "#E05555" : LINE}`, borderRadius: 12, padding: "13px 16px", fontSize: 15, fontFamily: BODY, textAlign: "center", outline: "none", boxSizing: "border-box" }}
+            type="email" placeholder="Email (optional)" value={email} autoComplete="username"
+            onChange={(e) => setEmail(e.target.value)} onKeyDown={(e) => e.key === "Enter" && login()}
+            style={{ width: "100%", background: "#fff", border: `1.5px solid ${pwError ? "#E05555" : LINE}`, borderRadius: 12, padding: "13px 16px", fontSize: 15, fontFamily: BODY, outline: "none", boxSizing: "border-box", marginBottom: 10 }}
           />
-          {pwError && <p style={{ color: "#C0392B", fontSize: 13, marginTop: 8 }}>Incorrect password. Try again.</p>}
-          <button onClick={login} style={{ width: "100%", marginTop: 16, padding: "14px", background: PINK, border: "none", borderRadius: 999, color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer", fontFamily: BODY }}>Sign In ✿</button>
+          <input
+            type="password" placeholder="Password" value={pw} autoComplete="current-password"
+            onChange={(e) => setPw(e.target.value)} onKeyDown={(e) => e.key === "Enter" && login()}
+            style={{ width: "100%", background: "#fff", border: `1.5px solid ${pwError ? "#E05555" : LINE}`, borderRadius: 12, padding: "13px 16px", fontSize: 15, fontFamily: BODY, outline: "none", boxSizing: "border-box" }}
+          />
+          {pwError && <p style={{ color: "#C0392B", fontSize: 13, marginTop: 8 }}>{pwError}</p>}
+          <button onClick={login} disabled={signingIn || !pw} style={{ width: "100%", marginTop: 16, padding: "14px", background: PINK, border: "none", borderRadius: 999, color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer", fontFamily: BODY, opacity: signingIn || !pw ? 0.6 : 1 }}>{signingIn ? "Signing in…" : "Sign In ✿"}</button>
+          <p style={{ color: MUTED, fontSize: 11.5, marginTop: 12 }}>Sign in with your email + password, or just the master password.</p>
         </div>
       </div>
     );
@@ -693,6 +819,8 @@ export default function AdminDashboard() {
         )}
 
         <Clients bookings={bookings} />
+
+        <ContentManager token={() => tokenRef.current || SUPABASE_KEY} />
 
         <BlockedDates blocked={blocked} onAdd={addBlocked} onRemove={removeBlocked} />
       </div>

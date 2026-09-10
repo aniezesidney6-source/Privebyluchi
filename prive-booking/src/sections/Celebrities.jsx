@@ -1,7 +1,9 @@
 import { CELEBS } from "../data";
 import { IconUser } from "../Icons";
+import { useContent } from "../content";
 
 export default function Celebrities() {
+  const celebs = useContent("celeb", CELEBS, (r) => ({ name: r.title, img: r.media_url }));
   return (
     <section className="section section--green" id="celebs">
       <div className="wrap">
@@ -12,7 +14,7 @@ export default function Celebrities() {
         </div>
 
         <div className="celeb-grid">
-          {CELEBS.map((c, i) => (
+          {celebs.map((c, i) => (
             <div className="celeb" key={i}>
               <div className="celeb__pic">
                 {c.img ? <img src={c.img} alt={c.name} loading="lazy" decoding="async" /> : <IconUser />}
