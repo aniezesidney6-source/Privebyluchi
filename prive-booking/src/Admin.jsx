@@ -760,7 +760,7 @@ export default function AdminDashboard() {
   const today = new Date(new Date().toDateString());
   const upcoming = bookings.filter((b) => new Date(b.date) >= today);
   const past = bookings.filter((b) => new Date(b.date) < today);
-  const clientCount = useMemo(() => clientsFrom(bookings).length, [bookings]);
+  const clientCount = clientsFrom(bookings).length;
 
   const badge = (n, bg, col) => ({ marginLeft: 10, background: bg, color: col, fontSize: 12, fontWeight: 700, padding: "2px 9px", borderRadius: 20, fontFamily: BODY });
   const counts = { overview: null, bookings: upcoming.length, clients: clientCount, content: null, dates: blocked.length };
