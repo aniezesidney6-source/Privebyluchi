@@ -24,7 +24,7 @@ const STATUSES = [
 ];
 const statusOf = (id) => STATUSES.find((s) => s.id === id) || STATUSES[0];
 const digits = (p) => (p || "").replace(/[^\d]/g, "");
-const waLink = (phone) => { let d = digits(phone); if (d.startsWith("0")) d = "234" + d.slice(1); else if (!d.startsWith("234")) d = "234" + d; return `https://wa.me/${d}`; };
+const waLink = (phone, msg) => { let d = digits(phone); if (d.startsWith("0")) d = "234" + d.slice(1); else if (!d.startsWith("234")) d = "234" + d; return `https://wa.me/${d}${msg ? `?text=${encodeURIComponent(msg)}` : ""}`; };
 const telLink = (phone) => `tel:${(phone || "").replace(/\s+/g, "")}`;
 
 function downloadCSV(rows) {
@@ -383,7 +383,7 @@ function BookingCard({ b, onCancel, onStatus, onReschedule, cancelling, cancelle
       <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 12, alignItems: "center" }}>
         {b.phone && (
           <>
-            <a href={waLink(b.phone)} target="_blank" rel="noreferrer" style={pill(GREEN, "#E7F3EC", "#CFE4D8")}>WhatsApp</a>
+            <a href={waLink(b.phone, `Hi ${(b.name || "love").split(" ")[0]}! 🌸 This is Privé by Luchi — a reminder of your ${b.style || "appointment"} on ${fmt(b.date)} at ${b.time}.${b.deposit ? ` Your ${naira(b.deposit)} deposit secures the slot.` : ""} Can't wait to see you — please confirm you're still on!`)} target="_blank" rel="noreferrer" style={pill(GREEN, "#E7F3EC", "#CFE4D8")}>Remind</a>
             <a href={telLink(b.phone)} style={pill(INK, "#F2ECEE", LINE)}>Call</a>
           </>
         )}
@@ -499,7 +499,7 @@ function Clients({ bookings }) {
                 </div>
                 {c.phone && (
                   <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
-                    <a href={waLink(c.phone)} target="_blank" rel="noreferrer" style={pill(GREEN, "#E7F3EC", "#CFE4D8")}>WhatsApp</a>
+                    <a href={waLink(c.phone, `Hi ${(c.name || "love").split(" ")[0]}! 🌸 It's Privé by Luchi — we'd love to have you back. Ready for your next style? Book here: https://privebyluchi.com`)} target="_blank" rel="noreferrer" style={pill(GREEN, "#E7F3EC", "#CFE4D8")}>WhatsApp</a>
                     <a href={telLink(c.phone)} style={pill(INK, "#F2ECEE", LINE)}>Call</a>
                   </div>
                 )}
