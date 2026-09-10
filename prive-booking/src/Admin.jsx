@@ -266,7 +266,7 @@ function VisitorAnalytics({ visits, bookings, loading }) {
   const series = useMemo(() => buildSeries(visits, bookings, period), [visits, bookings, period]);
   const locations = useMemo(() => topBy(visits, (v) => [v.city, v.country].filter(Boolean).join(", ")), [visits]);
   const sources = useMemo(() => topBy(visits, (v) => v.source), [visits]);
-  const styles = useMemo(() => topBy(bookings, (b) => b.style), [bookings]);
+  const styles = useMemo(() => topBy(bookings.filter((b) => b.style && b.style.trim()), (b) => b.style), [bookings]);
 
   const startToday = startOf(new Date(), "day").getTime();
   const upcomingB = bookings.filter((b) => new Date(b.date).getTime() >= startToday);
