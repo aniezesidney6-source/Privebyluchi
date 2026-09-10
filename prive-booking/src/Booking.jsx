@@ -49,6 +49,7 @@ export default function Booking() {
   const [bookedTimes, setBookedTimes] = useState([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [bookedDates, setBookedDates] = useState([]);
+  const [blockedDates, setBlockedDates] = useState([]);
   const [datesLoaded, setDatesLoaded] = useState(false);
   const [dateError, setDateError] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -81,6 +82,11 @@ export default function Booking() {
       const data = await res.json();
       setBookedDates([...new Set(data.map((b) => b.date))]);
     } catch { setBookedDates([]); }
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/blocked_dates?select=date`, { headers: SUPA_HEADERS });
+      const data = await res.json();
+      if (Array.isArray(data)) setBlockedDates(data.map((b) => b.date));
+    } catch { /* table may not exist yet */ }
   };
 
   const fetchBookedTimes = async (d) => {
@@ -148,12 +154,32 @@ Notes: ${form.notes || "None"}
         }),
       });
       if (res.ok) {
+        // Save the full record for the admin dashboard. If the richer columns
+        // aren't in the DB yet, fall back to the minimal {date,time} insert so
+        // the slot is still reserved and a booking is never lost.
+        const fullRow = {
+          date, time,
+          name: form.name, phone: form.phone, email: form.email, address: form.address,
+          notes: form.notes || null,
+          style: `${service?.name || ""}${isButterfly && variant ? ` (${variant})` : ""}`.trim(),
+          size: size || null,
+          addons: extrasLabel === "None" ? null : extrasLabel,
+          total, deposit,
+          status: "pending",
+        };
         try {
-          await fetch(`${SUPABASE_URL}/rest/v1/bookings`, {
+          const ins = await fetch(`${SUPABASE_URL}/rest/v1/bookings`, {
             method: "POST",
             headers: { ...SUPA_HEADERS, Prefer: "return=minimal" },
-            body: JSON.stringify({ date, time }),
+            body: JSON.stringify(fullRow),
           });
+          if (!ins.ok) {
+            await fetch(`${SUPABASE_URL}/rest/v1/bookings`, {
+              method: "POST",
+              headers: { ...SUPA_HEADERS, Prefer: "return=minimal" },
+              body: JSON.stringify({ date, time }),
+            });
+          }
         } catch { /* non-blocking */ }
         setSubmitted(true);
       } else { setSendError(true); }
@@ -304,7 +330,7 @@ Notes: ${form.notes || "None"}
                     const val = e.target.value;
                     if (val < minDate()) { setDate(""); setTime(""); setDateError(false); return; }
                     setDate(val); setTime("");
-                    if (bookedDates.includes(val)) setDateError(true);
+                    if (bookedDates.includes(val) || blockedDates.includes(val)) setDateError(true);
                     else { setDateError(false); fetchBookedTimes(val); }
                   }}
                 />

@@ -12,6 +12,43 @@ const SUPA_HEADERS = { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_K
 const ADMIN_PASSWORD = "Chigozie100500";
 
 const fmt = (d) => new Date(d).toLocaleDateString("en-NG", { weekday: "short", year: "numeric", month: "short", day: "numeric" });
+const naira = (n) => (n == null || n === "" ? "—" : "₦" + Number(n).toLocaleString());
+
+/* ---------- booking helpers ---------- */
+const STATUSES = [
+  { id: "pending", label: "Pending", bg: "#FFF4E5", col: "#B8730A" },
+  { id: "deposit_paid", label: "Deposit paid", bg: "#FDECF2", col: PINK_DEEP },
+  { id: "confirmed", label: "Confirmed", bg: "#E7F3EC", col: GREEN },
+  { id: "completed", label: "Completed", bg: "#EAF0FF", col: "#3A5BB0" },
+  { id: "no_show", label: "No-show", bg: "#FBEAEA", col: "#B23B3B" },
+];
+const statusOf = (id) => STATUSES.find((s) => s.id === id) || STATUSES[0];
+const digits = (p) => (p || "").replace(/[^\d]/g, "");
+const waLink = (phone) => { let d = digits(phone); if (d.startsWith("0")) d = "234" + d.slice(1); else if (!d.startsWith("234")) d = "234" + d; return `https://wa.me/${d}`; };
+const telLink = (phone) => `tel:${(phone || "").replace(/\s+/g, "")}`;
+
+function downloadCSV(rows) {
+  const cols = ["date", "time", "name", "phone", "email", "style", "size", "addons", "total", "deposit", "status", "address", "notes", "created_at"];
+  const esc = (v) => { const s = v == null ? "" : String(v); return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
+  const csv = [cols.join(","), ...rows.map((r) => cols.map((c) => esc(r[c])).join(","))].join("\n");
+  const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+  const a = document.createElement("a");
+  a.href = url; a.download = `prive-bookings-${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+}
+function printSchedule(list) {
+  const w = window.open("", "_blank");
+  if (!w) return;
+  const byDate = {};
+  list.forEach((b) => { (byDate[b.date] = byDate[b.date] || []).push(b); });
+  const blocks = Object.keys(byDate).sort().map((d) => {
+    const rows = byDate[d].sort((a, b) => (a.time > b.time ? 1 : -1)).map((b) =>
+      `<tr><td>${b.time || ""}</td><td>${b.name || "—"}</td><td>${(b.style || "—")}${b.size ? " (" + b.size + ")" : ""}</td><td>${b.phone || "—"}</td><td>${b.address || "—"}</td><td>${b.deposit != null ? "₦" + Number(b.deposit).toLocaleString() : "—"}</td></tr>`).join("");
+    return `<h2>${new Date(d).toDateString()}</h2><table><thead><tr><th>Time</th><th>Client</th><th>Style</th><th>Phone</th><th>Address</th><th>Deposit</th></tr></thead><tbody>${rows}</tbody></table>`;
+  }).join("");
+  w.document.write(`<html><head><title>Privé by Luchi — Schedule</title><style>body{font-family:system-ui,sans-serif;padding:26px;color:#26201F}h1{color:#1E4D3E;font-size:22px;margin:0 0 4px}h2{color:#C63E6C;font-size:15px;margin:22px 0 6px}table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:7px 10px;border-bottom:1px solid #eee;font-size:13px}th{color:#7A6E70;text-transform:uppercase;font-size:10px;letter-spacing:.05em}</style></head><body><h1>Privé by Luchi</h1><div style="color:#7A6E70;font-size:12px">Upcoming schedule · printed ${new Date().toLocaleString()}</div>${blocks || "<p>No upcoming bookings.</p>"}</body></html>`);
+  w.document.close(); w.focus(); setTimeout(() => w.print(), 350);
+}
 
 /* ---------- visitor analytics helpers ---------- */
 const PERIODS = [
@@ -221,6 +258,96 @@ function VisitorAnalytics({ visits, bookings, loading }) {
   );
 }
 
+const pill = (col, bg, border) => ({ padding: "8px 14px", borderRadius: 999, border: `1.5px solid ${border || bg}`, background: bg, color: col, fontSize: 13, fontWeight: 600, fontFamily: BODY, cursor: "pointer", textDecoration: "none", display: "inline-flex", alignItems: "center", lineHeight: 1 });
+const miniInput = { border: `1.5px solid ${LINE}`, borderRadius: 10, padding: "8px 10px", fontSize: 13, fontFamily: BODY, color: INK, background: "#fff", boxSizing: "border-box" };
+
+function BookingCard({ b, onCancel, onStatus, onReschedule, cancelling, cancelled }) {
+  const [editing, setEditing] = useState(false);
+  const [rDate, setRDate] = useState(b.date);
+  const [rTime, setRTime] = useState(b.time);
+  const [saving, setSaving] = useState(false);
+  const st = statusOf(b.status);
+  const save = async () => { setSaving(true); const ok = await onReschedule(b.id, rDate, rTime); setSaving(false); if (ok) setEditing(false); };
+
+  return (
+    <div style={{ background: cancelled ? "#FDECEC" : "#fff", border: `1px solid ${cancelled ? "#F4B8B8" : LINE}`, borderRadius: 16, padding: "16px 18px", opacity: cancelled ? 0.6 : 1, boxShadow: "0 10px 30px -22px rgba(38,32,31,.35)" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ color: GREEN, fontSize: 16, fontWeight: 600, fontFamily: HEAD }}>{b.name || "Unknown client"}</div>
+          <div style={{ color: INK, fontSize: 14, marginTop: 2 }}>{b.style || "—"}{b.size ? ` · ${b.size}` : ""}</div>
+          {b.addons && <div style={{ color: MUTED, fontSize: 12.5, marginTop: 2 }}>Add-ons: {b.addons}</div>}
+        </div>
+        <span style={{ background: st.bg, color: st.col, fontSize: 11, fontWeight: 700, padding: "4px 10px", borderRadius: 20, whiteSpace: "nowrap" }}>{st.label}</span>
+      </div>
+
+      <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 16px", marginTop: 10, fontSize: 13, color: MUTED }}>
+        <span>📅 <b style={{ color: INK }}>{fmt(b.date)}</b></span>
+        <span>⏱ {b.time}</span>
+        {b.total != null && <span>💰 {naira(b.total)} · dep {naira(b.deposit)}</span>}
+      </div>
+      {b.address && <div style={{ fontSize: 13, color: MUTED, marginTop: 6 }}>📍 {b.address}</div>}
+      {b.notes && <div style={{ fontSize: 12.5, color: MUTED, marginTop: 4, fontStyle: "italic" }}>“{b.notes}”</div>}
+
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 12, alignItems: "center" }}>
+        {b.phone && (
+          <>
+            <a href={waLink(b.phone)} target="_blank" rel="noreferrer" style={pill(GREEN, "#E7F3EC", "#CFE4D8")}>WhatsApp</a>
+            <a href={telLink(b.phone)} style={pill(INK, "#F2ECEE", LINE)}>Call</a>
+          </>
+        )}
+        <select value={b.status || "pending"} onChange={(e) => onStatus(b.id, e.target.value)}
+          style={{ marginLeft: "auto", border: `1.5px solid ${LINE}`, borderRadius: 999, padding: "7px 12px", fontSize: 13, fontFamily: BODY, color: INK, background: "#fff", cursor: "pointer" }}>
+          {STATUSES.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
+        </select>
+      </div>
+
+      {editing ? (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 12, alignItems: "center" }}>
+          <input type="date" value={rDate} onChange={(e) => setRDate(e.target.value)} style={miniInput} />
+          <input type="text" value={rTime} onChange={(e) => setRTime(e.target.value)} placeholder="e.g. 11:00 AM" style={{ ...miniInput, width: 130 }} />
+          <button onClick={save} disabled={saving} style={pill("#fff", PINK, PINK)}>{saving ? "Saving…" : "Save"}</button>
+          <button onClick={() => setEditing(false)} style={pill(MUTED, "#fff", LINE)}>Discard</button>
+        </div>
+      ) : (
+        <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+          <button onClick={() => { setRDate(b.date); setRTime(b.time); setEditing(true); }} style={pill(GREEN, "#fff", "#CFE4D8")}>Reschedule</button>
+          <button onClick={() => onCancel(b.id)} disabled={cancelling || cancelled} style={pill(cancelled ? "#C0392B" : PINK_DEEP, PINK_TINT, "#F4C4D4")}>
+            {cancelling ? "Cancelling…" : cancelled ? "Cancelled ✓" : "Cancel"}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function BlockedDates({ blocked, onAdd, onRemove }) {
+  const [d, setD] = useState("");
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState(false);
+  const add = async () => { if (!d) return; setBusy(true); await onAdd(d, reason); setBusy(false); setD(""); setReason(""); };
+  return (
+    <div style={{ marginTop: 40 }}>
+      <div style={{ fontFamily: HEAD, fontSize: 20, fontWeight: 600, marginBottom: 12 }}>Blocked-out Dates</div>
+      <div style={{ background: "#fff", border: `1px solid ${LINE}`, borderRadius: 16, padding: "16px 18px" }}>
+        <p style={{ color: MUTED, fontSize: 13, marginBottom: 12 }}>Dates marked here can't be booked by clients (holidays, personal days).</p>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", marginBottom: blocked.length ? 16 : 0 }}>
+          <input type="date" value={d} min={new Date().toISOString().slice(0, 10)} onChange={(e) => setD(e.target.value)} style={miniInput} />
+          <input type="text" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Reason (optional)" style={{ ...miniInput, flex: 1, minWidth: 140 }} />
+          <button onClick={add} disabled={busy || !d} style={pill("#fff", PINK, PINK)}>{busy ? "Adding…" : "Block date"}</button>
+        </div>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+          {blocked.map((x) => (
+            <span key={x.id} style={{ display: "inline-flex", alignItems: "center", gap: 8, background: PINK_TINT, border: "1px solid #F4C4D4", borderRadius: 999, padding: "6px 12px", fontSize: 13 }}>
+              <b style={{ color: GREEN }}>{fmt(x.date)}</b>{x.reason ? <span style={{ color: MUTED }}>· {x.reason}</span> : null}
+              <button onClick={() => onRemove(x.id)} title="Unblock" style={{ border: "none", background: "none", color: PINK_DEEP, cursor: "pointer", fontWeight: 700, fontSize: 16, lineHeight: 1 }}>×</button>
+            </span>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function AdminDashboard() {
   const [authed, setAuthed] = useState(false);
   const [pw, setPw] = useState("");
@@ -231,13 +358,44 @@ export default function AdminDashboard() {
   const [cancelledIds, setCancelledIds] = useState([]);
   const [visits, setVisits] = useState([]);
   const [visitsLoading, setVisitsLoading] = useState(false);
+  const [blocked, setBlocked] = useState([]);
 
   const login = () => {
-    if (pw === ADMIN_PASSWORD) { setAuthed(true); fetchBookings(); fetchVisits(); }
+    if (pw === ADMIN_PASSWORD) { setAuthed(true); fetchBookings(); fetchVisits(); fetchBlocked(); }
     else { setPwError(true); setTimeout(() => setPwError(false), 2000); }
   };
 
-  const refreshAll = () => { fetchBookings(); fetchVisits(); };
+  const refreshAll = () => { fetchBookings(); fetchVisits(); fetchBlocked(); };
+
+  const fetchBlocked = async () => {
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/blocked_dates?select=*&order=date.asc`, { headers: SUPA_HEADERS });
+      const d = await res.json();
+      setBlocked(Array.isArray(d) ? d : []);
+    } catch { setBlocked([]); }
+  };
+  const addBlocked = async (date, reason) => {
+    try {
+      await fetch(`${SUPABASE_URL}/rest/v1/blocked_dates`, { method: "POST", headers: { ...SUPA_HEADERS, Prefer: "return=minimal" }, body: JSON.stringify({ date, reason: reason || null }) });
+      fetchBlocked();
+    } catch { alert("Could not block that date."); }
+  };
+  const removeBlocked = async (id) => {
+    setBlocked((p) => p.filter((x) => x.id !== id));
+    try { await fetch(`${SUPABASE_URL}/rest/v1/blocked_dates?id=eq.${id}`, { method: "DELETE", headers: SUPA_HEADERS }); } catch { /* ignore */ }
+  };
+  const updateStatus = async (id, status) => {
+    setBookings((p) => p.map((b) => (b.id === id ? { ...b, status } : b)));
+    try { await fetch(`${SUPABASE_URL}/rest/v1/bookings?id=eq.${id}`, { method: "PATCH", headers: { ...SUPA_HEADERS, Prefer: "return=minimal" }, body: JSON.stringify({ status }) }); } catch { /* ignore */ }
+  };
+  const saveReschedule = async (id, date, time) => {
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/bookings?id=eq.${id}`, { method: "PATCH", headers: { ...SUPA_HEADERS, Prefer: "return=minimal" }, body: JSON.stringify({ date, time }) });
+      if (!res.ok) { alert("Could not reschedule. Make sure the DB update is applied."); return false; }
+      setBookings((p) => p.map((b) => (b.id === id ? { ...b, date, time } : b)));
+      return true;
+    } catch { alert("Could not reschedule."); return false; }
+  };
 
   const fetchBookings = async () => {
     setLoading(true);
@@ -312,11 +470,15 @@ export default function AdminDashboard() {
       <div style={{ maxWidth: 720, margin: "0 auto", padding: "32px 20px 60px" }}>
         <VisitorAnalytics visits={visits} bookings={bookings} loading={visitsLoading} />
 
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 22 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10, marginBottom: 22 }}>
           <div style={{ fontFamily: HEAD, fontSize: 20, fontWeight: 600 }}>
             Upcoming Bookings<span style={badge(upcoming.length, PINK, "#fff")}>{upcoming.length}</span>
           </div>
-          <button onClick={refreshAll} style={{ background: "#fff", border: `1.5px solid ${LINE}`, borderRadius: 999, padding: "9px 18px", color: MUTED, fontSize: 14, cursor: "pointer", fontFamily: BODY, fontWeight: 500 }}>↻ Refresh</button>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <button onClick={() => printSchedule(upcoming)} style={pill(GREEN, "#fff", "#CFE4D8")}>🖨 Print schedule</button>
+            <button onClick={() => downloadCSV(bookings)} style={pill(GREEN, "#fff", "#CFE4D8")}>⤓ Export CSV</button>
+            <button onClick={refreshAll} style={pill(MUTED, "#fff", LINE)}>↻ Refresh</button>
+          </div>
         </div>
 
         {loading ? (
@@ -328,21 +490,11 @@ export default function AdminDashboard() {
           </div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {upcoming.map((b) => {
-              const cancelled = cancelledIds.includes(b.id);
-              return (
-                <div key={b.id} style={{ background: cancelled ? "#FDECEC" : "#fff", border: `1px solid ${cancelled ? "#F4B8B8" : LINE}`, borderRadius: 16, padding: "16px 20px", display: "flex", justifyContent: "space-between", alignItems: "center", transition: "all .3s", opacity: cancelled ? 0.6 : 1, boxShadow: "0 10px 30px -22px rgba(38,32,31,.35)" }}>
-                  <div>
-                    <div style={{ color: GREEN, fontSize: 17, fontWeight: 600, fontFamily: HEAD, marginBottom: 3 }}>{fmt(b.date)}</div>
-                    <div style={{ color: MUTED, fontSize: 14 }}>⏱ {b.time}</div>
-                  </div>
-                  <button onClick={() => cancelBooking(b.id)} disabled={cancelling === b.id || cancelled}
-                    style={{ padding: "9px 18px", background: cancelled ? "transparent" : PINK_TINT, border: `1.5px solid ${cancelled ? "#F4B8B8" : "#F4C4D4"}`, borderRadius: 999, cursor: cancelled ? "default" : "pointer", color: cancelled ? "#C0392B" : PINK_DEEP, fontSize: 14, fontWeight: 600, fontFamily: BODY }}>
-                    {cancelling === b.id ? "Cancelling…" : cancelled ? "Cancelled ✓" : "Cancel Slot"}
-                  </button>
-                </div>
-              );
-            })}
+            {upcoming.map((b) => (
+              <BookingCard key={b.id} b={b}
+                cancelling={cancelling === b.id} cancelled={cancelledIds.includes(b.id)}
+                onCancel={cancelBooking} onStatus={updateStatus} onReschedule={saveReschedule} />
+            ))}
           </div>
         )}
 
@@ -353,14 +505,19 @@ export default function AdminDashboard() {
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {past.map((b) => (
-                <div key={b.id} style={{ background: "#F7F0F3", border: `1px solid ${LINE}`, borderRadius: 14, padding: "14px 20px", display: "flex", justifyContent: "space-between", alignItems: "center", opacity: 0.7 }}>
-                  <div style={{ color: MUTED, fontSize: 14 }}>{fmt(b.date)}</div>
-                  <div style={{ color: MUTED, fontSize: 13 }}>{b.time}</div>
+                <div key={b.id} style={{ background: "#F7F0F3", border: `1px solid ${LINE}`, borderRadius: 14, padding: "12px 18px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, opacity: 0.75 }}>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ color: INK, fontSize: 14, fontWeight: 600 }}>{b.name || "Unknown"}<span style={{ color: MUTED, fontWeight: 400 }}>{b.style ? ` · ${b.style}` : ""}</span></div>
+                    <div style={{ color: MUTED, fontSize: 12.5 }}>{fmt(b.date)} · {b.time}</div>
+                  </div>
+                  <span style={{ background: statusOf(b.status).bg, color: statusOf(b.status).col, fontSize: 11, fontWeight: 700, padding: "3px 9px", borderRadius: 20, whiteSpace: "nowrap" }}>{statusOf(b.status).label}</span>
                 </div>
               ))}
             </div>
           </>
         )}
+
+        <BlockedDates blocked={blocked} onAdd={addBlocked} onRemove={removeBlocked} />
       </div>
 
       <div style={{ borderTop: `1px solid ${LINE}`, padding: "20px 24px", textAlign: "center" }}>
