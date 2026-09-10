@@ -136,12 +136,13 @@ function returningStats(visits) {
 
 function StatTile({ label, value }) {
   return (
-    <div style={{ background: "#fff", border: `1px solid ${LINE}`, borderRadius: 14, padding: "14px 16px", flex: 1, minWidth: 120 }}>
-      <div style={{ color: MUTED, fontSize: 12, marginBottom: 4 }}>{label}</div>
-      <div style={{ color: PINK_DEEP, fontSize: 24, fontWeight: 600, fontFamily: HEAD }}>{value}</div>
+    <div style={{ background: "#fff", border: `1px solid ${LINE}`, borderRadius: 14, padding: "16px 18px", minWidth: 0 }}>
+      <div style={{ color: MUTED, fontSize: 12, marginBottom: 6, lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis" }}>{label}</div>
+      <div style={{ color: PINK_DEEP, fontSize: 26, fontWeight: 600, fontFamily: HEAD, lineHeight: 1.1, wordBreak: "break-word" }}>{value}</div>
     </div>
   );
 }
+const statGrid = (min) => ({ display: "grid", gridTemplateColumns: `repeat(auto-fit, minmax(${min}px, 1fr))`, gap: 10 });
 function TopList({ title, rows }) {
   const max = Math.max(1, ...rows.map((r) => r.count));
   return (
@@ -279,10 +280,8 @@ function VisitorAnalytics({ visits, bookings, loading }) {
   const conversion = v30 ? Math.round((b30 / v30) * 100) : 0;
 
   return (
-    <div style={{ marginBottom: 40 }}>
-      <div style={{ fontFamily: HEAD, fontSize: 20, fontWeight: 600, marginBottom: 16 }}>Website Visitors</div>
-
-      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 12 }}>
+    <div>
+      <div style={{ ...statGrid(120), marginBottom: 10 }}>
         <StatTile label="Total visits" value={visits.length} />
         <StatTile label="Today" value={countSince(visits, "day")} />
         <StatTile label="This week" value={countSince(visits, "week")} />
@@ -290,7 +289,7 @@ function VisitorAnalytics({ visits, bookings, loading }) {
         <StatTile label="Conversion (30d)" value={`${conversion}%`} />
       </div>
 
-      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 16 }}>
+      <div style={{ ...statGrid(150), marginBottom: 16 }}>
         <StatTile label="Expected revenue (upcoming)" value={naira(expectedRevenue)} />
         <StatTile label="Deposits collected" value={naira(depositsCollected)} />
         <StatTile label="Upcoming bookings" value={upcomingB.length} />
@@ -419,7 +418,7 @@ function BlockedDates({ blocked, onAdd, onRemove }) {
   const [busy, setBusy] = useState(false);
   const add = async () => { if (!d) return; setBusy(true); await onAdd(d, reason); setBusy(false); setD(""); setReason(""); };
   return (
-    <div style={{ marginTop: 40 }}>
+    <div>
       <div style={{ fontFamily: HEAD, fontSize: 20, fontWeight: 600, marginBottom: 12 }}>Blocked-out Dates</div>
       <div style={{ background: "#fff", border: `1px solid ${LINE}`, borderRadius: 16, padding: "16px 18px" }}>
         <p style={{ color: MUTED, fontSize: 13, marginBottom: 12 }}>Dates marked here can't be booked by clients (holidays, personal days).</p>
@@ -477,7 +476,7 @@ function Clients({ bookings }) {
     document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
   };
   return (
-    <div style={{ marginTop: 40 }}>
+    <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10, marginBottom: 14 }}>
         <div style={{ fontFamily: HEAD, fontSize: 20, fontWeight: 600 }}>
           Clients<span style={{ marginLeft: 10, background: "#EFE3E8", color: MUTED, fontSize: 12, fontWeight: 700, padding: "2px 9px", borderRadius: 20 }}>{all.length}</span>
@@ -569,7 +568,7 @@ function ContentManager({ token }) {
   };
 
   return (
-    <div style={{ marginTop: 40 }}>
+    <div>
       <div style={{ fontFamily: HEAD, fontSize: 20, fontWeight: 600, marginBottom: 12 }}>Website Content</div>
       <div style={{ background: "#fff", border: `1px solid ${LINE}`, borderRadius: 16, padding: "16px 18px" }}>
         <p style={{ color: MUTED, fontSize: 13, marginBottom: 14 }}>Add or remove what shows on your site. As soon as you add items to a section, they replace the built-in defaults there.</p>
@@ -609,8 +608,17 @@ function ContentManager({ token }) {
   );
 }
 
+const TABS = [
+  { id: "overview", label: "Overview", icon: "📊" },
+  { id: "bookings", label: "Bookings", icon: "📅" },
+  { id: "clients", label: "Clients", icon: "💗" },
+  { id: "content", label: "Content", icon: "🖼" },
+  { id: "dates", label: "Blocked dates", icon: "🚫" },
+];
+
 export default function AdminDashboard() {
   const [authed, setAuthed] = useState(false);
+  const [tab, setTab] = useState("overview");
   const [email, setEmail] = useState("");
   const [pw, setPw] = useState("");
   const [pwError, setPwError] = useState("");
@@ -752,77 +760,123 @@ export default function AdminDashboard() {
   const today = new Date(new Date().toDateString());
   const upcoming = bookings.filter((b) => new Date(b.date) >= today);
   const past = bookings.filter((b) => new Date(b.date) < today);
+  const clientCount = useMemo(() => clientsFrom(bookings).length, [bookings]);
 
   const badge = (n, bg, col) => ({ marginLeft: 10, background: bg, color: col, fontSize: 12, fontWeight: 700, padding: "2px 9px", borderRadius: 20, fontFamily: BODY });
+  const counts = { overview: null, bookings: upcoming.length, clients: clientCount, content: null, dates: blocked.length };
+  const sectionTitle = { fontFamily: HEAD, fontSize: 20, fontWeight: 600, marginBottom: 16 };
 
   return (
     <div style={shell}>
-      <div style={{ borderBottom: `1px solid ${LINE}`, padding: "22px 24px", display: "flex", alignItems: "center", justifyContent: "space-between", background: "#fff" }}>
-        <div>
-          <div style={{ color: PINK, fontSize: 12, letterSpacing: 3, textTransform: "uppercase", fontWeight: 600, marginBottom: 4 }}>Admin Dashboard</div>
-          <h1 style={{ fontFamily: HEAD, fontSize: 24, fontWeight: 600, color: GREEN }}>Privé by Luchi</h1>
-        </div>
-        <div style={{ textAlign: "right" }}>
-          <div style={{ color: MUTED, fontSize: 12, marginBottom: 2 }}>Total bookings</div>
-          <div style={{ color: PINK_DEEP, fontSize: 28, fontWeight: 600, fontFamily: HEAD }}>{bookings.length}</div>
+      <style>{`
+        .adm-wrap{max-width:860px;margin:0 auto;padding:26px 22px 72px;}
+        .adm-tabs{position:sticky;top:0;z-index:20;background:rgba(255,251,249,.92);backdrop-filter:saturate(1.4) blur(8px);border-bottom:1px solid ${LINE};}
+        .adm-tabs-inner{max-width:860px;margin:0 auto;display:flex;gap:6px;padding:10px 22px;overflow-x:auto;-ms-overflow-style:none;scrollbar-width:none;}
+        .adm-tabs-inner::-webkit-scrollbar{display:none;}
+        .adm-head{padding:20px 22px;background:#fff;border-bottom:1px solid ${LINE};}
+        .adm-head-inner{max-width:860px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:14px;}
+        @media(max-width:560px){
+          .adm-wrap{padding:20px 14px 64px;}
+          .adm-head{padding:16px 14px;}
+          .adm-tabs-inner{padding:9px 14px;}
+          .adm-head-h1{font-size:20px!important;}
+          .adm-head-total{font-size:23px!important;}
+        }
+      `}</style>
+
+      <div className="adm-head">
+        <div className="adm-head-inner">
+          <div>
+            <div style={{ color: PINK, fontSize: 12, letterSpacing: 3, textTransform: "uppercase", fontWeight: 600, marginBottom: 4 }}>Admin Dashboard</div>
+            <h1 className="adm-head-h1" style={{ fontFamily: HEAD, fontSize: 24, fontWeight: 600, color: GREEN }}>Privé by Luchi</h1>
+          </div>
+          <div style={{ textAlign: "right", flexShrink: 0 }}>
+            <div style={{ color: MUTED, fontSize: 12, marginBottom: 2 }}>Total bookings</div>
+            <div className="adm-head-total" style={{ color: PINK_DEEP, fontSize: 28, fontWeight: 600, fontFamily: HEAD }}>{bookings.length}</div>
+          </div>
         </div>
       </div>
 
-      <div style={{ maxWidth: 720, margin: "0 auto", padding: "32px 20px 60px" }}>
-        <VisitorAnalytics visits={visits} bookings={bookings} loading={visitsLoading} />
-
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10, marginBottom: 22 }}>
-          <div style={{ fontFamily: HEAD, fontSize: 20, fontWeight: 600 }}>
-            Upcoming Bookings<span style={badge(upcoming.length, PINK, "#fff")}>{upcoming.length}</span>
-          </div>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <button onClick={() => printSchedule(upcoming)} style={pill(GREEN, "#fff", "#CFE4D8")}>🖨 Print schedule</button>
-            <button onClick={() => downloadCSV(bookings)} style={pill(GREEN, "#fff", "#CFE4D8")}>⤓ Export CSV</button>
-            <button onClick={refreshAll} style={pill(MUTED, "#fff", LINE)}>↻ Refresh</button>
-          </div>
+      <div className="adm-tabs">
+        <div className="adm-tabs-inner">
+          {TABS.map((t) => {
+            const active = t.id === tab;
+            const c = counts[t.id];
+            return (
+              <button key={t.id} onClick={() => setTab(t.id)}
+                style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "9px 15px", borderRadius: 999, border: `1.5px solid ${active ? PINK : LINE}`, background: active ? PINK : "#fff", color: active ? "#fff" : MUTED, fontSize: 13.5, fontWeight: 600, cursor: "pointer", fontFamily: BODY, whiteSpace: "nowrap", flexShrink: 0 }}>
+                <span style={{ fontSize: 14 }}>{t.icon}</span>{t.label}
+                {c != null && c > 0 && <span style={{ background: active ? "rgba(255,255,255,.28)" : PINK_TINT, color: active ? "#fff" : PINK_DEEP, fontSize: 11, fontWeight: 700, padding: "1px 7px", borderRadius: 20 }}>{c}</span>}
+              </button>
+            );
+          })}
         </div>
+      </div>
 
-        {loading ? (
-          <p style={{ color: MUTED, textAlign: "center", padding: 40 }}>Loading bookings…</p>
-        ) : upcoming.length === 0 ? (
-          <div style={{ background: "#fff", border: `1px solid ${LINE}`, borderRadius: 18, padding: "40px 20px", textAlign: "center" }}>
-            <div style={{ color: PINK, fontSize: 26, marginBottom: 10 }}>✿</div>
-            <p style={{ color: MUTED, fontSize: 15 }}>No upcoming bookings</p>
-          </div>
-        ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {upcoming.map((b) => (
-              <BookingCard key={b.id} b={b}
-                cancelling={cancelling === b.id} cancelled={cancelledIds.includes(b.id)}
-                onCancel={cancelBooking} onStatus={updateStatus} onReschedule={saveReschedule} />
-            ))}
-          </div>
-        )}
-
-        {past.length > 0 && (
+      <div className="adm-wrap">
+        {tab === "overview" && (
           <>
-            <div style={{ fontFamily: HEAD, fontSize: 18, fontWeight: 600, margin: "36px 0 16px", color: MUTED }}>
-              Past Bookings<span style={badge(past.length, "#EFE3E8", MUTED)}>{past.length}</span>
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {past.map((b) => (
-                <div key={b.id} style={{ background: "#F7F0F3", border: `1px solid ${LINE}`, borderRadius: 14, padding: "12px 18px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, opacity: 0.75 }}>
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ color: INK, fontSize: 14, fontWeight: 600 }}>{b.name || "Unknown"}<span style={{ color: MUTED, fontWeight: 400 }}>{b.style ? ` · ${b.style}` : ""}</span></div>
-                    <div style={{ color: MUTED, fontSize: 12.5 }}>{fmt(b.date)} · {b.time}</div>
-                  </div>
-                  <span style={{ background: statusOf(b.status).bg, color: statusOf(b.status).col, fontSize: 11, fontWeight: 700, padding: "3px 9px", borderRadius: 20, whiteSpace: "nowrap" }}>{statusOf(b.status).label}</span>
-                </div>
-              ))}
-            </div>
+            <div style={sectionTitle}>Website Visitors</div>
+            <VisitorAnalytics visits={visits} bookings={bookings} loading={visitsLoading} />
           </>
         )}
 
-        <Clients bookings={bookings} />
+        {tab === "bookings" && (
+          <>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10, marginBottom: 22 }}>
+              <div style={{ fontFamily: HEAD, fontSize: 20, fontWeight: 600 }}>
+                Upcoming Bookings<span style={badge(upcoming.length, PINK, "#fff")}>{upcoming.length}</span>
+              </div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <button onClick={() => printSchedule(upcoming)} style={pill(GREEN, "#fff", "#CFE4D8")}>🖨 Print schedule</button>
+                <button onClick={() => downloadCSV(bookings)} style={pill(GREEN, "#fff", "#CFE4D8")}>⤓ Export CSV</button>
+                <button onClick={refreshAll} style={pill(MUTED, "#fff", LINE)}>↻ Refresh</button>
+              </div>
+            </div>
 
-        <ContentManager token={() => tokenRef.current || SUPABASE_KEY} />
+            {loading ? (
+              <p style={{ color: MUTED, textAlign: "center", padding: 40 }}>Loading bookings…</p>
+            ) : upcoming.length === 0 ? (
+              <div style={{ background: "#fff", border: `1px solid ${LINE}`, borderRadius: 18, padding: "40px 20px", textAlign: "center" }}>
+                <div style={{ color: PINK, fontSize: 26, marginBottom: 10 }}>✿</div>
+                <p style={{ color: MUTED, fontSize: 15 }}>No upcoming bookings</p>
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {upcoming.map((b) => (
+                  <BookingCard key={b.id} b={b}
+                    cancelling={cancelling === b.id} cancelled={cancelledIds.includes(b.id)}
+                    onCancel={cancelBooking} onStatus={updateStatus} onReschedule={saveReschedule} />
+                ))}
+              </div>
+            )}
 
-        <BlockedDates blocked={blocked} onAdd={addBlocked} onRemove={removeBlocked} />
+            {past.length > 0 && (
+              <>
+                <div style={{ fontFamily: HEAD, fontSize: 18, fontWeight: 600, margin: "36px 0 16px", color: MUTED }}>
+                  Past Bookings<span style={badge(past.length, "#EFE3E8", MUTED)}>{past.length}</span>
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {past.map((b) => (
+                    <div key={b.id} style={{ background: "#F7F0F3", border: `1px solid ${LINE}`, borderRadius: 14, padding: "12px 18px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, opacity: 0.75 }}>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ color: INK, fontSize: 14, fontWeight: 600 }}>{b.name || "Unknown"}<span style={{ color: MUTED, fontWeight: 400 }}>{b.style ? ` · ${b.style}` : ""}</span></div>
+                        <div style={{ color: MUTED, fontSize: 12.5 }}>{fmt(b.date)} · {b.time}</div>
+                      </div>
+                      <span style={{ background: statusOf(b.status).bg, color: statusOf(b.status).col, fontSize: 11, fontWeight: 700, padding: "3px 9px", borderRadius: 20, whiteSpace: "nowrap" }}>{statusOf(b.status).label}</span>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </>
+        )}
+
+        {tab === "clients" && <Clients bookings={bookings} />}
+
+        {tab === "content" && <ContentManager token={() => tokenRef.current || SUPABASE_KEY} />}
+
+        {tab === "dates" && <BlockedDates blocked={blocked} onAdd={addBlocked} onRemove={removeBlocked} />}
       </div>
 
       <div style={{ borderTop: `1px solid ${LINE}`, padding: "20px 24px", textAlign: "center" }}>
