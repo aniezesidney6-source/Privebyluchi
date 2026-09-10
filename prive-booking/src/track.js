@@ -27,6 +27,18 @@ function readableSource(ref) {
   } catch { return "Other"; }
 }
 
+// Stable per-browser id so the dashboard can tell returning vs new visitors.
+function visitorId() {
+  try {
+    let id = localStorage.getItem("pv_vid");
+    if (!id) {
+      id = (typeof crypto !== "undefined" && crypto.randomUUID) ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      localStorage.setItem("pv_vid", id);
+    }
+    return id;
+  } catch { return null; }
+}
+
 export async function trackVisit() {
   // One visit per browser session (a refresh spree doesn't inflate the count).
   try {
@@ -56,19 +68,22 @@ export async function trackVisit() {
     country: geo.country || null,
     region: geo.region || null,
     city: geo.city || null,
+    visitor_id: visitorId(),
   };
 
+  const headers = {
+    apikey: SUPABASE_KEY,
+    Authorization: `Bearer ${SUPABASE_KEY}`,
+    "Content-Type": "application/json",
+    Prefer: "return=minimal",
+  };
   try {
-    await fetch(`${SUPABASE_URL}/rest/v1/visits`, {
-      method: "POST",
-      headers: {
-        apikey: SUPABASE_KEY,
-        Authorization: `Bearer ${SUPABASE_KEY}`,
-        "Content-Type": "application/json",
-        Prefer: "return=minimal",
-      },
-      body: JSON.stringify(visit),
-    });
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/visits`, { method: "POST", headers, body: JSON.stringify(visit) });
+    if (!res.ok) {
+      // visitor_id column may not be migrated yet — record the visit without it
+      const { visitor_id, ...rest } = visit;
+      await fetch(`${SUPABASE_URL}/rest/v1/visits`, { method: "POST", headers, body: JSON.stringify(rest) });
+    }
   } catch { /* offline / table missing: silently skip */ }
 
   notifyOwnerThrottled(visit);

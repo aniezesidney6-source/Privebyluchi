@@ -114,6 +114,24 @@ function topBy(visits, pick, n = 5) {
   for (const v of visits) { const k = pick(v) || "Unknown"; m[k] = (m[k] || 0) + 1; }
   return Object.entries(m).sort((a, b) => b[1] - a[1]).slice(0, n).map(([name, count]) => ({ name, count }));
 }
+const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+function buildHeatmap(visits) {
+  const grid = Array.from({ length: 7 }, () => new Array(24).fill(0));
+  let max = 0;
+  for (const v of visits) {
+    const t = new Date(v.created_at); if (isNaN(t)) continue;
+    const wd = (t.getDay() + 6) % 7, h = t.getHours();
+    grid[wd][h]++; if (grid[wd][h] > max) max = grid[wd][h];
+  }
+  return { grid, max };
+}
+function returningStats(visits) {
+  const counts = {};
+  for (const v of visits) { if (v.visitor_id) counts[v.visitor_id] = (counts[v.visitor_id] || 0) + 1; }
+  const ids = Object.keys(counts);
+  const returning = ids.filter((id) => counts[id] > 1).length;
+  return { unique: ids.length, returning, newv: ids.length - returning, untracked: visits.filter((v) => !v.visitor_id).length };
+}
 
 function StatTile({ label, value }) {
   return (
@@ -192,21 +210,89 @@ function DeviceDonut({ visits }) {
   );
 }
 
+function ReturningNew({ visits }) {
+  const s = useMemo(() => returningStats(visits), [visits]);
+  const total = s.returning + s.newv || 1;
+  return (
+    <div style={{ background: "#fff", border: `1px solid ${LINE}`, borderRadius: 16, padding: "18px 20px", flex: 1, minWidth: 220 }}>
+      <div style={{ fontFamily: HEAD, fontSize: 15, fontWeight: 600, color: GREEN, marginBottom: 12 }}>New vs returning</div>
+      {s.unique === 0 ? (
+        <p style={{ color: MUTED, fontSize: 13 }}>Building up… once the visitor-id update is applied, returning visitors show here.</p>
+      ) : (
+        <>
+          <div style={{ display: "flex", height: 10, borderRadius: 6, overflow: "hidden", marginBottom: 12 }}>
+            <div style={{ width: `${(s.newv / total) * 100}%`, background: PINK }} />
+            <div style={{ width: `${(s.returning / total) * 100}%`, background: GREEN }} />
+          </div>
+          {[{ name: "New visitors", value: s.newv, color: PINK }, { name: "Returning", value: s.returning, color: GREEN }].map((r) => (
+            <div key={r.name} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 7, fontSize: 13 }}>
+              <span style={{ width: 10, height: 10, borderRadius: 3, background: r.color }} />
+              <span style={{ color: INK, minWidth: 96 }}>{r.name}</span><b style={{ color: INK }}>{r.value}</b>
+            </div>
+          ))}
+          {s.untracked > 0 && <div style={{ color: MUTED, fontSize: 11, marginTop: 4 }}>{s.untracked} earlier visits not yet tagged</div>}
+        </>
+      )}
+    </div>
+  );
+}
+
+function PeakHeatmap({ visits }) {
+  const { grid, max } = useMemo(() => buildHeatmap(visits), [visits]);
+  if (!visits.length) return null;
+  const hours = [...Array(24).keys()];
+  const cellBg = (n) => (n === 0 ? "#F5EEF1" : `rgba(232,90,138,${0.18 + (max ? n / max : 0) * 0.82})`);
+  const children = [<div key="corner" />];
+  hours.forEach((h) => children.push(<div key={"h" + h} style={{ fontSize: 8.5, color: MUTED, textAlign: "center" }}>{h % 3 === 0 ? h : ""}</div>));
+  WEEKDAYS.forEach((d, wd) => {
+    children.push(<div key={"l" + wd} style={{ fontSize: 11, color: MUTED }}>{d}</div>);
+    hours.forEach((h) => children.push(<div key={wd + "-" + h} title={`${d} ${h}:00 — ${grid[wd][h]} visit(s)`} style={{ height: 15, borderRadius: 3, background: cellBg(grid[wd][h]) }} />));
+  });
+  return (
+    <div style={{ background: "#fff", border: `1px solid ${LINE}`, borderRadius: 18, padding: "18px 20px", marginTop: 16 }}>
+      <div style={{ fontFamily: HEAD, fontSize: 15, fontWeight: 600, color: GREEN, marginBottom: 4 }}>Peak times</div>
+      <p style={{ color: MUTED, fontSize: 12.5, marginBottom: 14 }}>When people visit, by weekday and hour.</p>
+      <div style={{ overflowX: "auto" }}>
+        <div style={{ minWidth: 560, display: "grid", gridTemplateColumns: "34px repeat(24, 1fr)", gap: 3, alignItems: "center" }}>{children}</div>
+      </div>
+    </div>
+  );
+}
+
 function VisitorAnalytics({ visits, bookings, loading }) {
   const [period, setPeriod] = useState(PERIODS[1]); // Day
   const series = useMemo(() => buildSeries(visits, bookings, period), [visits, bookings, period]);
   const locations = useMemo(() => topBy(visits, (v) => [v.city, v.country].filter(Boolean).join(", ")), [visits]);
   const sources = useMemo(() => topBy(visits, (v) => v.source), [visits]);
+  const styles = useMemo(() => topBy(bookings, (b) => b.style), [bookings]);
+
+  const startToday = startOf(new Date(), "day").getTime();
+  const upcomingB = bookings.filter((b) => new Date(b.date).getTime() >= startToday);
+  const expectedRevenue = upcomingB.reduce((a, b) => a + (Number(b.total) || 0), 0);
+  const depositsCollected = bookings
+    .filter((b) => ["deposit_paid", "confirmed", "completed"].includes(b.status))
+    .reduce((a, b) => a + (Number(b.deposit) || 0), 0);
+  const d30 = Date.now() - 30 * 864e5;
+  const v30 = visits.filter((v) => new Date(v.created_at).getTime() >= d30).length;
+  const b30 = bookings.filter((b) => new Date(b.created_at || b.date).getTime() >= d30).length;
+  const conversion = v30 ? Math.round((b30 / v30) * 100) : 0;
 
   return (
     <div style={{ marginBottom: 40 }}>
       <div style={{ fontFamily: HEAD, fontSize: 20, fontWeight: 600, marginBottom: 16 }}>Website Visitors</div>
 
-      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 16 }}>
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 12 }}>
         <StatTile label="Total visits" value={visits.length} />
         <StatTile label="Today" value={countSince(visits, "day")} />
         <StatTile label="This week" value={countSince(visits, "week")} />
         <StatTile label="This month" value={countSince(visits, "month")} />
+        <StatTile label="Conversion (30d)" value={`${conversion}%`} />
+      </div>
+
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 16 }}>
+        <StatTile label="Expected revenue (upcoming)" value={naira(expectedRevenue)} />
+        <StatTile label="Deposits collected" value={naira(depositsCollected)} />
+        <StatTile label="Upcoming bookings" value={upcomingB.length} />
       </div>
 
       <div style={{ background: "#fff", border: `1px solid ${LINE}`, borderRadius: 18, padding: "18px 16px 8px" }}>
@@ -249,10 +335,16 @@ function VisitorAnalytics({ visits, bookings, loading }) {
         )}
       </div>
 
+      <PeakHeatmap visits={visits} />
+
       <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginTop: 16 }}>
         <DeviceDonut visits={visits} />
+        <ReturningNew visits={visits} />
+      </div>
+      <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginTop: 12 }}>
         <TopList title="Where they came from" rows={sources} />
         <TopList title="Top locations" rows={locations} />
+        <TopList title="Popular styles" rows={styles} />
       </div>
     </div>
   );
@@ -296,7 +388,7 @@ function BookingCard({ b, onCancel, onStatus, onReschedule, cancelling, cancelle
           </>
         )}
         <select value={b.status || "pending"} onChange={(e) => onStatus(b.id, e.target.value)}
-          style={{ marginLeft: "auto", border: `1.5px solid ${LINE}`, borderRadius: 999, padding: "7px 12px", fontSize: 13, fontFamily: BODY, color: INK, background: "#fff", cursor: "pointer" }}>
+          style={{ marginLeft: "auto", border: `1.5px solid ${LINE}`, borderRadius: 10, padding: "8px 34px 8px 14px", fontSize: 13, fontFamily: BODY, color: INK, background: "#fff", cursor: "pointer", appearance: "none", WebkitAppearance: "none", MozAppearance: "none", backgroundImage: `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%237A6E70' stroke-width='2.5' stroke-linecap='round'><path d='M6 9l6 6 6-6'/></svg>")`, backgroundRepeat: "no-repeat", backgroundPosition: "right 12px center" }}>
           {STATUSES.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
         </select>
       </div>
@@ -344,6 +436,78 @@ function BlockedDates({ blocked, onAdd, onRemove }) {
           ))}
         </div>
       </div>
+    </div>
+  );
+}
+
+function clientsFrom(bookings) {
+  const map = {};
+  for (const b of bookings) {
+    if (!b.name && !b.phone) continue;
+    const key = (b.phone && digits(b.phone)) || (b.name || "").trim().toLowerCase();
+    if (!key) continue;
+    const c = map[key] || { name: b.name || "Unknown", phone: b.phone || "", email: b.email || "", count: 0, last: b.date, styles: new Set() };
+    c.count++;
+    if ((!c.name || c.name === "Unknown") && b.name) c.name = b.name;
+    if (!c.phone && b.phone) c.phone = b.phone;
+    if (!c.email && b.email) c.email = b.email;
+    if (b.style) c.styles.add(b.style);
+    if (new Date(b.date) > new Date(c.last)) c.last = b.date;
+    map[key] = c;
+  }
+  return Object.values(map).sort((a, b) => new Date(b.last) - new Date(a.last));
+}
+
+function Clients({ bookings }) {
+  const all = useMemo(() => clientsFrom(bookings), [bookings]);
+  const [q, setQ] = useState("");
+  const list = useMemo(() => {
+    const s = q.trim().toLowerCase();
+    if (!s) return all;
+    return all.filter((c) => (c.name || "").toLowerCase().includes(s) || digits(c.phone).includes(digits(s)));
+  }, [all, q]);
+  const exportClients = () => {
+    const cols = ["name", "phone", "email", "bookings", "last_booking", "styles"];
+    const esc = (v) => { const x = v == null ? "" : String(v); return /[",\n]/.test(x) ? `"${x.replace(/"/g, '""')}"` : x; };
+    const rows = all.map((c) => ({ name: c.name, phone: c.phone, email: c.email, bookings: c.count, last_booking: c.last, styles: [...c.styles].join(" | ") }));
+    const csv = [cols.join(","), ...rows.map((r) => cols.map((c) => esc(r[c])).join(","))].join("\n");
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    const a = document.createElement("a"); a.href = url; a.download = `prive-clients-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+  };
+  return (
+    <div style={{ marginTop: 40 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10, marginBottom: 14 }}>
+        <div style={{ fontFamily: HEAD, fontSize: 20, fontWeight: 600 }}>
+          Clients<span style={{ marginLeft: 10, background: "#EFE3E8", color: MUTED, fontSize: 12, fontWeight: 700, padding: "2px 9px", borderRadius: 20 }}>{all.length}</span>
+        </div>
+        {all.length > 0 && <button onClick={exportClients} style={pill(GREEN, "#fff", "#CFE4D8")}>⤓ Export clients</button>}
+      </div>
+      {all.length === 0 ? (
+        <div style={{ background: "#fff", border: `1px solid ${LINE}`, borderRadius: 16, padding: "30px 20px", textAlign: "center", color: MUTED, fontSize: 14 }}>
+          Client records build automatically from bookings (name + number). New bookings appear here for easy re-contact and retention.
+        </div>
+      ) : (
+        <>
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search by name or number…" style={{ ...miniInput, width: "100%", padding: "11px 14px", marginBottom: 12 }} />
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {list.map((c, i) => (
+              <div key={i} style={{ background: "#fff", border: `1px solid ${LINE}`, borderRadius: 14, padding: "13px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ color: INK, fontSize: 15, fontWeight: 600 }}>{c.name}</div>
+                  <div style={{ color: MUTED, fontSize: 12.5 }}>{c.phone || "no number"} · {c.count} booking{c.count > 1 ? "s" : ""} · last {fmt(c.last)}</div>
+                </div>
+                {c.phone && (
+                  <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+                    <a href={waLink(c.phone)} target="_blank" rel="noreferrer" style={pill(GREEN, "#E7F3EC", "#CFE4D8")}>WhatsApp</a>
+                    <a href={telLink(c.phone)} style={pill(INK, "#F2ECEE", LINE)}>Call</a>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -401,15 +565,26 @@ export default function AdminDashboard() {
     setLoading(true);
     try {
       const res = await fetch(`${SUPABASE_URL}/rest/v1/bookings?select=*&order=date.asc,time.asc`, { headers: SUPA_HEADERS });
-      const data = await res.json();
-      setBookings(Array.isArray(data) ? data : []);
+      let data = await res.json();
+      data = Array.isArray(data) ? data : [];
+      // Past bookings default to "completed" (never leave them as pending).
+      const startToday = new Date(new Date().toDateString()).getTime();
+      const stale = data.filter((b) => new Date(b.date).getTime() < startToday && (!b.status || b.status === "pending"));
+      if (stale.length) {
+        const staleIds = new Set(stale.map((b) => b.id));
+        data = data.map((b) => (staleIds.has(b.id) ? { ...b, status: "completed" } : b));
+        stale.forEach((b) => {
+          fetch(`${SUPABASE_URL}/rest/v1/bookings?id=eq.${b.id}`, { method: "PATCH", headers: { ...SUPA_HEADERS, Prefer: "return=minimal" }, body: JSON.stringify({ status: "completed" }) }).catch(() => {});
+        });
+      }
+      setBookings(data);
     } catch { setBookings([]); } finally { setLoading(false); }
   };
 
   const fetchVisits = async () => {
     setVisitsLoading(true);
     try {
-      const res = await fetch(`${SUPABASE_URL}/rest/v1/visits?select=created_at,source,country,region,city,device&order=created_at.desc&limit=10000`, { headers: SUPA_HEADERS });
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/visits?select=created_at,source,country,region,city,device,visitor_id&order=created_at.desc&limit=10000`, { headers: SUPA_HEADERS });
       const data = await res.json();
       setVisits(Array.isArray(data) ? data : []);
     } catch { setVisits([]); } finally { setVisitsLoading(false); }
@@ -516,6 +691,8 @@ export default function AdminDashboard() {
             </div>
           </>
         )}
+
+        <Clients bookings={bookings} />
 
         <BlockedDates blocked={blocked} onAdd={addBlocked} onRemove={removeBlocked} />
       </div>
