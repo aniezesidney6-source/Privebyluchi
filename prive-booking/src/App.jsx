@@ -1,5 +1,6 @@
-import { useLayoutEffect } from "react";
+import { useLayoutEffect, useEffect } from "react";
 import "./styles.css";
+import { trackVisit } from "./track";
 import Nav from "./sections/Nav";
 import Hero from "./sections/Hero";
 import Strip from "./sections/Strip";
@@ -16,6 +17,9 @@ const REVEAL_SELECTOR =
   ".section-head, .work-card, .video-card, .review-shot, .celeb, .care-card, .ceo__photo, .ceo__bio";
 
 export default function App() {
+  // Record this visit (public site only — Admin renders separately).
+  useEffect(() => { trackVisit(); }, []);
+
   // Reveal-on-scroll: gently fade/rise elements as they enter the viewport.
   useLayoutEffect(() => {
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
