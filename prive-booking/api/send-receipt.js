@@ -8,6 +8,7 @@
 
 const FROM = "Privé by Luchi <bookings@luxuriousluchihairs.com>";
 const REPLY_TO = "luxuriousluchihairs@gmail.com";
+const ADMIN = "luxuriousluchihairs@gmail.com"; // where booking + calendar invites go
 
 const SUPABASE_URL = "https://vsabwbuzwhxfwqjpiyvs.supabase.co";
 const SUPABASE_KEY =
@@ -175,7 +176,116 @@ function buildText(b) {
   ].filter(Boolean).join("\n");
 }
 
-export { buildHtml, buildText }; // named exports for local preview/tests; Vercel uses the default
+/* ---------- admin calendar invite (.ics) ---------- */
+// Convert "9:00 AM" -> "0900"; default to 09:00 if unparseable.
+function to24h(t) {
+  const m = String(t || "").match(/(\d{1,2}):(\d{2})\s*(AM|PM)?/i);
+  if (!m) return { h: 9, min: 0 };
+  let h = parseInt(m[1], 10); const min = parseInt(m[2], 10);
+  const ap = (m[3] || "").toUpperCase();
+  if (ap === "PM" && h < 12) h += 12;
+  if (ap === "AM" && h === 12) h = 0;
+  return { h, min };
+}
+const pad = (n) => String(n).padStart(2, "0");
+function icsEscape(s) {
+  return String(s == null ? "" : s).replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\n/g, "\\n");
+}
+// Build an importable VCALENDAR with a 1-day-before alarm. DTSTART is written
+// as floating local time (no Z) so it shows at the booked clock time in the
+// admin's calendar (Lagos). Duration defaults to 4h.
+function buildICS(b) {
+  const style = `${b.style || "Appointment"}${b.variant ? ` (${b.variant})` : ""}`.trim();
+  const { h, min } = to24h(b.time);
+  const ymd = String(b.date).replace(/-/g, "");
+  const start = `${ymd}T${pad(h)}${pad(min)}00`;
+  const endH = (h + 4) % 24;
+  const end = `${ymd}T${pad(endH)}${pad(min)}00`;
+  const now = new Date().toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
+  const uid = `${ymd}-${pad(h)}${pad(min)}-${String(b.phone || "").replace(/\D/g, "") || Math.random().toString(36).slice(2)}@privebyluchi.com`;
+  const desc = [
+    `Client: ${b.name || "Unknown"}`,
+    `Phone: ${b.phone || "—"}`,
+    `Style: ${style}${b.size ? ` · ${b.size}` : ""}`,
+    b.addons && b.addons !== "None" ? `Add-ons: ${b.addons}` : "",
+    `Total: ${naira(b.total)} · Deposit: ${naira(b.deposit)}`,
+    `Address: ${b.address || "—"}`,
+    `WhatsApp: https://wa.me/${String(b.phone || "").replace(/\D/g, "").replace(/^0/, "234")}`,
+  ].filter(Boolean).join("\\n");
+  return [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "PRODID:-//Prive by Luchi//Booking//EN",
+    "CALSCALE:GREGORIAN",
+    "METHOD:PUBLISH",
+    "BEGIN:VEVENT",
+    `UID:${uid}`,
+    `DTSTAMP:${now}`,
+    `DTSTART:${start}`,
+    `DTEND:${end}`,
+    `SUMMARY:${icsEscape(`Privé: ${style} — ${b.name || "Client"}`)}`,
+    `DESCRIPTION:${desc}`,
+    `LOCATION:${icsEscape(b.address || "Client address (mobile)")}`,
+    "BEGIN:VALARM",
+    "TRIGGER:-P1D",
+    "ACTION:DISPLAY",
+    `DESCRIPTION:${icsEscape(`Tomorrow: ${style} for ${b.name || "a client"}`)}`,
+    "END:VALARM",
+    "END:VEVENT",
+    "END:VCALENDAR",
+  ].join("\r\n");
+}
+
+function buildAdminHtml(b) {
+  const style = `${b.style || "Appointment"}${b.variant ? ` (${b.variant})` : ""}`.trim();
+  const waClient = `https://wa.me/${String(b.phone || "").replace(/\D/g, "").replace(/^0/, "234")}`;
+  const row = (l, v) =>
+    `<tr><td style="padding:8px 0;color:${MUTED};font-size:14px;border-bottom:1px solid ${LINE};">${esc(l)}</td><td style="padding:8px 0;color:${INK};font-size:14px;font-weight:600;text-align:right;border-bottom:1px solid ${LINE};">${v}</td></tr>`;
+  return `<!doctype html><html><body style="margin:0;background:${CREAM};">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:${CREAM};padding:26px 14px;"><tr><td align="center">
+    <table width="100%" style="max-width:560px;font-family:'Segoe UI',Helvetica,Arial,sans-serif;">
+      <tr><td style="text-align:center;padding-bottom:18px;">
+        <div style="font-family:Georgia,serif;font-size:22px;color:${GREEN};font-weight:700;">Privé <span style="color:${PINK};">✿</span> by Luchi</div>
+        <div style="font-size:12px;letter-spacing:2px;text-transform:uppercase;color:${PINK};font-weight:700;margin-top:6px;">New booking</div>
+      </td></tr>
+      <tr><td><div style="background:#fff;border:1px solid ${LINE};border-radius:16px;padding:18px 20px;">
+        <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
+          ${row("Client", esc(b.name || "Unknown"))}
+          ${row("Phone", esc(b.phone || "—"))}
+          ${row("Style", esc(style) + (b.size ? ` · ${esc(b.size)}` : ""))}
+          ${b.addons && b.addons !== "None" ? row("Add-ons", esc(b.addons)) : ""}
+          ${row("Date", esc(prettyDate(b.date)))}
+          ${row("Time", esc(b.time))}
+          ${row("Address", esc(b.address || "—"))}
+          ${row("Total · Deposit", `${naira(b.total)} · ${naira(b.deposit)}`)}
+        </table>
+        <a href="${waClient}" style="display:block;text-align:center;margin-top:16px;background:${GREEN};color:#fff;text-decoration:none;font-weight:600;font-size:15px;padding:12px 20px;border-radius:999px;">Message ${esc(firstName(b.name))} on WhatsApp</a>
+      </div></td></tr>
+      <tr><td style="padding:16px 4px 0;text-align:center;color:${MUTED};font-size:13px;line-height:1.6;">
+        📅 The calendar invite is attached, add it and you'll get a reminder <b>a day before</b>.<br>
+        You'll also get an automatic email reminder the morning before each appointment.
+      </td></tr>
+    </table>
+  </td></tr></table></body></html>`;
+}
+
+// Send one email through Resend. Returns {ok, id|error}.
+async function sendResend(key, payload) {
+  try {
+    const r = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (!r.ok) return { ok: false, error: (await r.text()).slice(0, 300) };
+    const d = await r.json();
+    return { ok: true, id: d.id };
+  } catch (e) {
+    return { ok: false, error: String(e).slice(0, 200) };
+  }
+}
+
+export { buildHtml, buildText, buildICS, buildAdminHtml }; // named exports for local preview/tests; Vercel uses the default
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -208,26 +318,40 @@ export default async function handler(req, res) {
     // only calls this right after a successful insert.
   }
 
+  const style = `${b.style || "appointment"}${b.variant ? ` (${b.variant})` : ""}`.trim();
+
+  // 1) Customer receipt (this is the response status the booking flow cares about).
+  const cust = await sendResend(key, {
+    from: FROM,
+    to: [email],
+    reply_to: REPLY_TO,
+    subject: `Your Privé by Luchi booking — ${style} on ${prettyDate(b.date)} 🌸`,
+    html: buildHtml(b),
+    text: buildText(b),
+  });
+
+  // 2) Admin notification + calendar invite (.ics with a 1-day-before alarm).
+  //    Non-fatal: a failure here must not fail the customer receipt.
+  let adminOk = false;
   try {
-    const r = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        from: FROM,
-        to: [email],
-        reply_to: REPLY_TO,
-        subject: `Your Privé by Luchi booking — ${`${b.style || "appointment"}${b.variant ? ` (${b.variant})` : ""}`.trim()} on ${prettyDate(b.date)} 🌸`,
-        html: buildHtml(b),
-        text: buildText(b),
-      }),
+    const ics = buildICS(b);
+    const admin = await sendResend(key, {
+      from: FROM,
+      to: [ADMIN],
+      subject: `📅 New booking — ${b.name || "Client"} · ${style} · ${prettyDate(b.date)}`,
+      html: buildAdminHtml(b),
+      text: `New booking\n\nClient: ${b.name}\nPhone: ${b.phone}\nStyle: ${style}${b.size ? " · " + b.size : ""}\nDate: ${prettyDate(b.date)}\nTime: ${b.time}\nAddress: ${b.address}\nTotal: ${naira(b.total)} · Deposit: ${naira(b.deposit)}\n\nAdd the attached calendar invite to be reminded a day before.`,
+      attachments: [{
+        filename: `prive-booking-${b.date}.ics`,
+        content: Buffer.from(ics, "utf-8").toString("base64"),
+        content_type: "text/calendar; method=PUBLISH",
+      }],
     });
-    if (!r.ok) {
-      const detail = await r.text();
-      return res.status(502).json({ error: "Email provider error", detail: detail.slice(0, 300) });
-    }
-    const data = await r.json();
-    return res.status(200).json({ ok: true, id: data.id });
-  } catch (e) {
-    return res.status(500).json({ error: "Failed to send", detail: String(e).slice(0, 200) });
+    adminOk = admin.ok;
+  } catch { /* ignore */ }
+
+  if (!cust.ok) {
+    return res.status(502).json({ error: "Email provider error", detail: cust.error, adminOk });
   }
+  return res.status(200).json({ ok: true, id: cust.id, adminOk });
 }
