@@ -181,6 +181,22 @@ Notes: ${form.notes || "None"}
             });
           }
         } catch { /* non-blocking */ }
+
+        // Email the customer a branded receipt (fire-and-forget — never block
+        // or fail the booking if the email service hiccups).
+        fetch("/api/send-receipt", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: form.name, email: form.email, phone: form.phone, address: form.address,
+            style: service?.name || "",
+            variant: isButterfly && variant ? variant : null,
+            size: size || null,
+            addons: extrasLabel,
+            total, deposit, date, time,
+          }),
+        }).catch(() => {});
+
         setSubmitted(true);
       } else { setSendError(true); }
     } catch { setSendError(true); } finally { setSending(false); }
@@ -225,7 +241,7 @@ Notes: ${form.notes || "None"}
               </a>
 
               <p style={{ fontSize: 13, color: "var(--muted)", marginTop: 14 }}>
-                Your slot is confirmed once we receive your deposit. We'll also confirm travel logistics to your address.
+                A confirmation and receipt is on its way to <b>{form.email}</b>. Your slot is confirmed once we receive your deposit, and we'll confirm your travel logistics on WhatsApp.
               </p>
               <p className="sig">Thank you for choosing us 🤭💕 — Privé by Luchi</p>
             </div>
