@@ -1,0 +1,14 @@
+{
+  "name": "Privé by Luchi — Mobile Braiding Studio",
+  "short_name": "Privé by Luchi",
+  "description": "Luxury mobile braiding studio in Lagos, Nigeria. Braids booked to your door.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#FFFBF9",
+  "theme_color": "#E85A8A",
+  "lang": "en-NG",
+  "icons": [
+    { "src": "/logo.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

@@ -29,6 +29,7 @@ export default function Footer() {
               <a href="#reviews">Reviews</a>
               <a href="#about">Meet the CEO</a>
               <a href="#care">Hair Care</a>
+              <a href="#faq">FAQ</a>
             </div>
           </div>
 

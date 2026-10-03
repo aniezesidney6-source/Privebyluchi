@@ -70,11 +70,11 @@ export const WORKS = [
   { name: "Small Knotless Braids", img: "/work/work-04.jpg" },
   { name: "Honey-blonde small knotless braids", img: "/work/work-05.jpg" },
   { name: "Small knotless braids, mid-install", img: "/work/work-06.jpg" },
-  { name: "Sleek braided ponytail with wavy ends", img: "/work/work-07.png" },
-  { name: "Cornrow ponytail with bantu-knot detail", img: "/work/work-08.png" },
-  { name: "Coloured knotless braids, mid-install", img: "/work/work-09.png" },
-  { name: "Blonde cornrow ponytail with heart design", img: "/work/work-10.png" },
-  { name: "Blonde curly bob braids", img: "/work/work-11.png" },
+  { name: "Sleek braided ponytail with wavy ends", img: "/work/work-07.jpg" },
+  { name: "Cornrow ponytail with bantu-knot detail", img: "/work/work-08.jpg" },
+  { name: "Coloured knotless braids, mid-install", img: "/work/work-09.jpg" },
+  { name: "Blonde cornrow ponytail with heart design", img: "/work/work-10.jpg" },
+  { name: "Blonde curly bob braids", img: "/work/work-11.jpg" },
   { name: "Blonde curly crochet bob", img: "/work/work-12.jpg" },
   { name: "Lemonade cornrows, side profile", img: "/work/work-13.jpg" },
   { name: "Boho knotless braids with curls", img: "/work/work-14.jpg" },
@@ -120,6 +120,26 @@ export const CEO = {
     "From everyday queens to household names, every head that sits in her chair leaves feeling like the main character.",
   ],
 };
+
+// ── How to book (also mirrored in HowTo structured data)
+export const BOOK_STEPS = [
+  { title: "Choose your style", body: "Pick knotless, box braids, cornrows, faux or butterfly locs, stitch braids or an install." },
+  { title: "Pick size & add-ons", body: "Select your braid size and any extras, beads, boho curls or extra length. The price updates live." },
+  { title: "Choose date & time", body: "Book an available slot at least 48 hours ahead. We take one appointment a day for an unrushed finish." },
+  { title: "Share your address", body: "Enter your name, phone and location in Lagos (or anywhere in Nigeria) so the stylist can come to you." },
+  { title: "Pay the deposit", body: "A small deposit secures your slot; the balance is settled on the day after your braids are done." },
+];
+
+// ── Frequently asked questions (visible on page + FAQPage schema)
+export const FAQS = [
+  { q: "Do you really come to my house?", a: "Yes. Privé by Luchi is a mobile braiding studio, so the stylist travels to your home or venue anywhere in Lagos, and across Nigeria on request. Travel logistics are covered by the client." },
+  { q: "How far ahead should I book?", a: "At least 48 hours in advance. We take just one appointment per day so every client gets a focused, unrushed, flawless finish." },
+  { q: "What braid styles do you offer?", a: "Knotless and box braids, Fulani and cornrows, stitch braids, faux locs, butterfly locs, and frontal, ponytail and closure installs. Add-ons include extra length, boho curls and beads." },
+  { q: "How much do braids cost in Lagos?", a: "Styles start from ₦35,000 for installs and from ₦45,000 for most braids, with the exact price depending on size and length. You see the full price before you confirm your booking." },
+  { q: "How long does an appointment take?", a: "Most styles take between 3 and 8 hours depending on the size and length you choose. Smaller braids take longer." },
+  { q: "How do I keep my braids fresh?", a: "Sleep in a satin or silk bonnet, cleanse your scalp every 1 to 2 weeks, keep the hair lightly moisturised, and take braids down within 6 to 8 weeks to protect your natural hair." },
+  { q: "How do I pay?", a: "Booking is in naira. A deposit secures your appointment and the balance is paid on the day your style is complete." },
+];
 
 // ── Hair Care advice
 export const HAIRCARE = [

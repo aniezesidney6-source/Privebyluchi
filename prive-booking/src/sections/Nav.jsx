@@ -9,6 +9,7 @@ const LINKS = [
   ["#reviews", "Reviews"],
   ["#about", "About"],
   ["#care", "Hair Care"],
+  ["#faq", "FAQ"],
 ];
 
 export default function Nav() {

@@ -11,6 +11,7 @@ import Reviews from "./sections/Reviews";
 import Celebrities from "./sections/Celebrities";
 import Ceo from "./sections/CEO";
 import HairCare from "./sections/HairCare";
+import Faq from "./sections/Faq";
 import Footer from "./sections/Footer";
 
 const REVEAL_SELECTOR =
@@ -53,6 +54,7 @@ export default function App() {
       <Celebrities />
       <Ceo />
       <HairCare />
+      <Faq />
       <Footer />
     </>
   );

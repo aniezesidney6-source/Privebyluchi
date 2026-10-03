@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
+  <url>
+    <loc>https://privebyluchi.com/</loc>
+    <lastmod>2026-10-03</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+    <image:image>
+      <image:loc>https://privebyluchi.com/og-image.jpg</image:loc>
+      <image:title>Privé by Luchi — luxury mobile braiding studio in Lagos, Nigeria</image:title>
+    </image:image>
+    <image:image>
+      <image:loc>https://privebyluchi.com/work/work-01.jpg</image:loc>
+      <image:caption>Feed-in cornrows to a side ponytail</image:caption>
+    </image:image>
+    <image:image>
+      <image:loc>https://privebyluchi.com/work/work-02.jpg</image:loc>
+      <image:caption>Boho knotless braids with stitch design</image:caption>
+    </image:image>
+    <image:image>
+      <image:loc>https://privebyluchi.com/work/work-05.jpg</image:loc>
+      <image:caption>Honey-blonde small knotless braids</image:caption>
+    </image:image>
+  </url>
+</urlset>

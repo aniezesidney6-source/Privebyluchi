@@ -468,3 +468,34 @@ input[type="date"]::-webkit-calendar-picker-indicator { cursor: pointer; opacity
   .rose { transform: scale(0.4); }
   .time-grid { grid-template-columns: repeat(2, 1fr); }
 }
+
+/* ── FAQ ─────────────────────────────────────────────── */
+.faq-list { max-width: 820px; margin: 0 auto; display: flex; flex-direction: column; gap: 12px; }
+.faq-item {
+  background: var(--white); border: 1px solid var(--line); border-radius: 16px;
+  padding: 2px 20px; box-shadow: var(--shadow-soft); overflow: hidden;
+}
+.faq-item > summary {
+  list-style: none; cursor: pointer; display: flex; align-items: center; justify-content: space-between;
+  gap: 16px; padding: 18px 0; font-family: var(--head); font-weight: 600; font-size: 16.5px; color: var(--green);
+}
+.faq-item > summary::-webkit-details-marker { display: none; }
+.faq-item__mark {
+  flex-shrink: 0; width: 26px; height: 26px; border-radius: 999px; background: var(--pink-tint);
+  color: var(--pink-deep); font-size: 20px; line-height: 24px; text-align: center; transition: transform .25s ease;
+}
+.faq-item[open] .faq-item__mark { transform: rotate(45deg); }
+.faq-item > p { margin: 0 0 18px; color: var(--muted); font-size: 15px; line-height: 1.6; }
+.faq-foot { text-align: center; color: var(--muted); font-size: 15px; margin-top: 26px; }
+.faq-foot a { color: var(--pink-deep); font-weight: 600; text-decoration: none; }
+.faq-foot a:hover { text-decoration: underline; }
+@media (prefers-reduced-motion: reduce) { .faq-item__mark { transition: none; } }
+
+/* ── 404 ─────────────────────────────────────────────── */
+.notfound {
+  min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  text-align: center; padding: 40px 24px; background: var(--cream); color: var(--ink); font-family: var(--body);
+}
+.notfound .bloom { font-size: 52px; color: var(--pink); margin-bottom: 14px; }
+.notfound h1 { font-family: var(--head); font-size: 30px; color: var(--green); margin: 0 0 10px; }
+.notfound p { color: var(--muted); font-size: 16px; max-width: 420px; margin: 0 0 24px; }

@@ -12,7 +12,15 @@
     <meta name="author" content="Privé by Luchi" />
     <meta name="robots" content="index, follow, max-image-preview:large" />
     <link rel="canonical" href="https://privebyluchi.com/" />
+    <link rel="alternate" hreflang="en-ng" href="https://privebyluchi.com/" />
+    <link rel="alternate" hreflang="x-default" href="https://privebyluchi.com/" />
     <link rel="icon" type="image/svg+xml" href="/logo.svg" />
+    <link rel="apple-touch-icon" href="/logo.svg" />
+    <link rel="manifest" href="/site.webmanifest" />
+
+    <!-- Local SEO (geo) -->
+    <meta name="geo.region" content="NG-LA" />
+    <meta name="geo.placename" content="Lagos, Nigeria" />
 
     <!-- Open Graph (Facebook, WhatsApp, LinkedIn) -->
     <meta property="og:type" content="website" />
@@ -38,48 +46,125 @@
     <link href="https://api.fontshare.com/v2/css?f[]=general-sans@400,500,600,700&display=swap" rel="stylesheet" />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
 
-    <!-- Structured data: local mobile hair salon -->
+    <!-- Structured data (@graph): Organization, WebSite, LocalBusiness/HairSalon, Services, Breadcrumb, HowTo, FAQ -->
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",
-      "@type": "HairSalon",
-      "name": "Privé by Luchi",
-      "description": "Luxury mobile braiding studio in Lagos, Nigeria. Knotless braids, box braids, faux locs, butterfly locs, cornrows and frontal installs, booked to your door.",
-      "url": "https://privebyluchi.com/",
-      "image": "https://privebyluchi.com/og-image.jpg",
-      "logo": "https://privebyluchi.com/logo.svg",
-      "telephone": "+2348156973807",
-      "email": "luxuriousluchihairs@gmail.com",
-      "priceRange": "₦₦",
-      "currenciesAccepted": "NGN",
-      "founder": { "@type": "Person", "name": "Chioma Christine Cletus" },
-      "address": {
-        "@type": "PostalAddress",
-        "addressLocality": "Lagos",
-        "addressRegion": "Lagos",
-        "addressCountry": "NG"
-      },
-      "areaServed": [
-        { "@type": "City", "name": "Lagos" },
-        { "@type": "Country", "name": "Nigeria" }
-      ],
-      "sameAs": [
-        "https://www.instagram.com/priveby_luchi",
-        "https://www.tiktok.com/@priveby_luchi"
-      ],
-      "openingHoursSpecification": [{
-        "@type": "OpeningHoursSpecification",
-        "dayOfWeek": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
-        "opens": "09:00",
-        "closes": "16:00"
-      }],
-      "makesOffer": [
-        { "@type": "Offer", "itemOffered": { "@type": "Service", "name": "Knotless / Box Braids" } },
-        { "@type": "Offer", "itemOffered": { "@type": "Service", "name": "Fulani / Cornrows" } },
-        { "@type": "Offer", "itemOffered": { "@type": "Service", "name": "Stitch Braids" } },
-        { "@type": "Offer", "itemOffered": { "@type": "Service", "name": "Faux Locs" } },
-        { "@type": "Offer", "itemOffered": { "@type": "Service", "name": "Butterfly Locs" } },
-        { "@type": "Offer", "itemOffered": { "@type": "Service", "name": "Frontal Install" } }
+      "@graph": [
+        {
+          "@type": "Organization",
+          "@id": "https://privebyluchi.com/#organization",
+          "name": "Privé by Luchi",
+          "url": "https://privebyluchi.com/",
+          "logo": {
+            "@type": "ImageObject",
+            "url": "https://privebyluchi.com/logo.svg",
+            "caption": "Privé by Luchi"
+          },
+          "image": "https://privebyluchi.com/og-image.jpg",
+          "email": "luxuriousluchihairs@gmail.com",
+          "founder": { "@type": "Person", "name": "Chioma Christine Cletus" },
+          "contactPoint": {
+            "@type": "ContactPoint",
+            "telephone": "+2348156973807",
+            "contactType": "customer service",
+            "areaServed": "NG",
+            "availableLanguage": ["en"]
+          },
+          "sameAs": [
+            "https://www.instagram.com/priveby_luchi",
+            "https://www.tiktok.com/@priveby_luchi"
+          ]
+        },
+        {
+          "@type": "WebSite",
+          "@id": "https://privebyluchi.com/#website",
+          "url": "https://privebyluchi.com/",
+          "name": "Privé by Luchi",
+          "description": "Luxury mobile braiding studio in Lagos, Nigeria.",
+          "publisher": { "@id": "https://privebyluchi.com/#organization" },
+          "inLanguage": "en-NG"
+        },
+        {
+          "@type": ["HairSalon", "LocalBusiness"],
+          "@id": "https://privebyluchi.com/#business",
+          "name": "Privé by Luchi",
+          "description": "Luxury mobile braiding studio in Lagos, Nigeria. Knotless braids, box braids, faux locs, butterfly locs, cornrows and frontal installs, booked to your door.",
+          "url": "https://privebyluchi.com/",
+          "image": "https://privebyluchi.com/og-image.jpg",
+          "logo": "https://privebyluchi.com/logo.svg",
+          "telephone": "+2348156973807",
+          "email": "luxuriousluchihairs@gmail.com",
+          "priceRange": "₦₦",
+          "currenciesAccepted": "NGN",
+          "paymentAccepted": "Bank transfer, Cash",
+          "parentOrganization": { "@id": "https://privebyluchi.com/#organization" },
+          "founder": { "@type": "Person", "name": "Chioma Christine Cletus" },
+          "address": {
+            "@type": "PostalAddress",
+            "addressLocality": "Lagos",
+            "addressRegion": "Lagos",
+            "addressCountry": "NG"
+          },
+          "areaServed": [
+            { "@type": "City", "name": "Lagos" },
+            { "@type": "Country", "name": "Nigeria" }
+          ],
+          "sameAs": [
+            "https://www.instagram.com/priveby_luchi",
+            "https://www.tiktok.com/@priveby_luchi"
+          ],
+          "openingHoursSpecification": [{
+            "@type": "OpeningHoursSpecification",
+            "dayOfWeek": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
+            "opens": "09:00",
+            "closes": "16:00"
+          }],
+          "makesOffer": [
+            { "@type": "Offer", "priceCurrency": "NGN", "price": "45000", "priceSpecification": { "@type": "PriceSpecification", "minPrice": "45000", "maxPrice": "80000", "priceCurrency": "NGN" }, "itemOffered": { "@type": "Service", "name": "Knotless / Box Braids", "serviceType": "Hair braiding", "provider": { "@id": "https://privebyluchi.com/#business" } } },
+            { "@type": "Offer", "priceCurrency": "NGN", "price": "45000", "itemOffered": { "@type": "Service", "name": "Fulani / Cornrows", "serviceType": "Hair braiding", "provider": { "@id": "https://privebyluchi.com/#business" } } },
+            { "@type": "Offer", "priceCurrency": "NGN", "price": "45000", "itemOffered": { "@type": "Service", "name": "Stitch Braids", "serviceType": "Hair braiding", "provider": { "@id": "https://privebyluchi.com/#business" } } },
+            { "@type": "Offer", "priceCurrency": "NGN", "price": "40000", "itemOffered": { "@type": "Service", "name": "Faux Locs", "serviceType": "Hair braiding", "provider": { "@id": "https://privebyluchi.com/#business" } } },
+            { "@type": "Offer", "priceCurrency": "NGN", "price": "45000", "itemOffered": { "@type": "Service", "name": "Butterfly Locs", "serviceType": "Hair braiding", "provider": { "@id": "https://privebyluchi.com/#business" } } },
+            { "@type": "Offer", "priceCurrency": "NGN", "price": "35000", "itemOffered": { "@type": "Service", "name": "Frontal / Ponytail / Closure Install", "serviceType": "Hair extension install", "provider": { "@id": "https://privebyluchi.com/#business" } } }
+          ]
+        },
+        {
+          "@type": "BreadcrumbList",
+          "@id": "https://privebyluchi.com/#breadcrumb",
+          "itemListElement": [
+            { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://privebyluchi.com/" },
+            { "@type": "ListItem", "position": 2, "name": "Book an Appointment", "item": "https://privebyluchi.com/#book" },
+            { "@type": "ListItem", "position": 3, "name": "FAQ", "item": "https://privebyluchi.com/#faq" }
+          ]
+        },
+        {
+          "@type": "HowTo",
+          "@id": "https://privebyluchi.com/#howtobook",
+          "name": "How to book a mobile braiding appointment with Privé by Luchi",
+          "description": "Book a mobile braiding stylist to your door in Lagos or anywhere in Nigeria in five quick steps.",
+          "totalTime": "PT5M",
+          "step": [
+            { "@type": "HowToStep", "position": 1, "name": "Choose your style", "text": "Pick knotless, box braids, cornrows, faux or butterfly locs, stitch braids or an install." },
+            { "@type": "HowToStep", "position": 2, "name": "Pick size & add-ons", "text": "Select your braid size and any extras, beads, boho curls or extra length. The price updates live." },
+            { "@type": "HowToStep", "position": 3, "name": "Choose date & time", "text": "Book an available slot at least 48 hours ahead. We take one appointment a day for an unrushed finish." },
+            { "@type": "HowToStep", "position": 4, "name": "Share your address", "text": "Enter your name, phone and location in Lagos or anywhere in Nigeria so the stylist can come to you." },
+            { "@type": "HowToStep", "position": 5, "name": "Pay the deposit", "text": "A small deposit secures your slot; the balance is settled on the day after your braids are done." }
+          ]
+        },
+        {
+          "@type": "FAQPage",
+          "@id": "https://privebyluchi.com/#faq-schema",
+          "mainEntity": [
+            { "@type": "Question", "name": "Do you really come to my house?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. Privé by Luchi is a mobile braiding studio, so the stylist travels to your home or venue anywhere in Lagos, and across Nigeria on request. Travel logistics are covered by the client." } },
+            { "@type": "Question", "name": "How far ahead should I book?", "acceptedAnswer": { "@type": "Answer", "text": "At least 48 hours in advance. We take just one appointment per day so every client gets a focused, unrushed, flawless finish." } },
+            { "@type": "Question", "name": "What braid styles do you offer?", "acceptedAnswer": { "@type": "Answer", "text": "Knotless and box braids, Fulani and cornrows, stitch braids, faux locs, butterfly locs, and frontal, ponytail and closure installs. Add-ons include extra length, boho curls and beads." } },
+            { "@type": "Question", "name": "How much do braids cost in Lagos?", "acceptedAnswer": { "@type": "Answer", "text": "Styles start from ₦35,000 for installs and from ₦45,000 for most braids, with the exact price depending on size and length. You see the full price before you confirm your booking." } },
+            { "@type": "Question", "name": "How long does an appointment take?", "acceptedAnswer": { "@type": "Answer", "text": "Most styles take between 3 and 8 hours depending on the size and length you choose. Smaller braids take longer." } },
+            { "@type": "Question", "name": "How do I keep my braids fresh?", "acceptedAnswer": { "@type": "Answer", "text": "Sleep in a satin or silk bonnet, cleanse your scalp every 1 to 2 weeks, keep the hair lightly moisturised, and take braids down within 6 to 8 weeks to protect your natural hair." } },
+            { "@type": "Question", "name": "How do I pay?", "acceptedAnswer": { "@type": "Answer", "text": "Booking is in naira. A deposit secures your appointment and the balance is paid on the day your style is complete." } }
+          ]
+        }
       ]
     }
     </script>

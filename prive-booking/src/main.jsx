@@ -1,8 +1,11 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import App from './App'
+import NotFound from './sections/NotFound'
 
-const isAdmin = window.location.pathname === '/admin'
+const path = window.location.pathname.replace(/\/+$/, '') || '/'
+const isAdmin = path === '/admin'
+const isHome = path === '/' || path === '/index.html'
 const root = createRoot(document.getElementById('root'))
 
 // Dismiss the loading screen once the app has mounted (with a short minimum
@@ -22,12 +25,22 @@ function dismissLoader() {
 }
 
 if (isAdmin) {
+  // Keep the private dashboard out of search indexes.
+  document.title = 'Admin · Privé by Luchi'
+  const noindex = document.createElement('meta')
+  noindex.name = 'robots'
+  noindex.content = 'noindex, nofollow'
+  document.head.appendChild(noindex)
   // Admin pulls in the chart library — load it only here so the public site stays light.
   import('./Admin').then(({ default: Admin }) => {
     root.render(<StrictMode><Admin /></StrictMode>)
     dismissLoader()
   })
-} else {
+} else if (isHome) {
   root.render(<StrictMode><App /></StrictMode>)
+  dismissLoader()
+} else {
+  // Unknown route → custom 404 (noindex, with a path home).
+  root.render(<StrictMode><NotFound /></StrictMode>)
   dismissLoader()
 }
