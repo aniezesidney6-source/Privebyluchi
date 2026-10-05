@@ -78,6 +78,8 @@ export const WORKS = [
   { name: "Blonde curly crochet bob", img: "/work/work-12.jpg" },
   { name: "Lemonade cornrows, side profile", img: "/work/work-13.jpg" },
   { name: "Boho knotless braids with curls", img: "/work/work-14.jpg" },
+  { name: "Kids tribal cornrows with beads", img: "/work/work-15.jpg" },
+  { name: "Lemonade cornrows with a long braided ponytail", img: "/work/work-16.jpg" },
 ];
 
 // ── Videos — drop .mp4 files in public/videos and set `src`.
@@ -89,6 +91,8 @@ export const VIDEOS = [
   { title: "Behind the Braids", src: "/videos/video-04.mp4", poster: null },
   { title: "In the Studio Chair", src: "/videos/video-05.mp4", poster: null },
   { title: "The Reveal", src: "/videos/video-06.mp4", poster: null },
+  { title: "Cornrows, Start to Finish", src: "/videos/video-07.mp4", poster: null },
+  { title: "The Privé Finish", src: "/videos/video-08.mp4", poster: null },
 ];
 
 // ── Reviews — real WhatsApp chat screenshots (cropped). Each card shows the shot.
