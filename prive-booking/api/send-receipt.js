@@ -6,7 +6,7 @@
 // owner's inbox. To avoid being an open spam relay, it only sends when a
 // matching booking row (same date + time) actually exists in Supabase.
 
-const FROM = "Privé by Luchi <bookings@luxuriousluchihairs.com>";
+const FROM = "Privé by Luchi <bookings@privebyluchi.com>";
 const REPLY_TO = "luxuriousluchihairs@gmail.com";
 const ADMIN = "luxuriousluchihairs@gmail.com"; // where booking + calendar invites go
 

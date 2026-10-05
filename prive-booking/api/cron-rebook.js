@@ -4,7 +4,7 @@
 // spammed. Env: RESEND_API_KEY; optional CRON_SECRET.
 
 const REBOOK_DAYS = 35;
-const FROM = "Privé by Luchi <bookings@luxuriousluchihairs.com>";
+const FROM = "Privé by Luchi <bookings@privebyluchi.com>";
 const REPLY_TO = "luxuriousluchihairs@gmail.com";
 
 const SUPABASE_URL = "https://vsabwbuzwhxfwqjpiyvs.supabase.co";

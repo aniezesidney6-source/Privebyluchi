@@ -5,7 +5,7 @@
 // CRON_SECRET (optional — if set, the request must carry it; Vercel sends it
 // automatically on cron runs).
 
-const FROM = "Privé by Luchi <bookings@luxuriousluchihairs.com>";
+const FROM = "Privé by Luchi <bookings@privebyluchi.com>";
 const ADMIN = "luxuriousluchihairs@gmail.com";
 
 const SUPABASE_URL = "https://vsabwbuzwhxfwqjpiyvs.supabase.co";
