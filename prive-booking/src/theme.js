@@ -41,3 +41,19 @@ export const whatsappLink = (msg = "Hi Privé by Luchi! I'd like to book a braid
   `https://wa.me/${CONTACT.whatsapp}?text=${encodeURIComponent(msg)}`;
 
 export const fmt = (n) => `₦${n.toLocaleString()}`;
+
+// ── Referral program ───────────────────────────────────
+// A client's referral code is derived deterministically from their phone, so
+// the same code can be re-computed anywhere (client + serverless) without a
+// lookup table. Share it, and both the referrer and the new client get money off.
+export const REFERRAL_DISCOUNT = 3000; // ₦ off for the referred new client
+export const REFERRAL_REWARD = 3000;   // ₦ off the referrer's next booking
+
+export function refCode(phone) {
+  const d = String(phone || "").replace(/\D/g, "");
+  if (d.length < 7) return "";
+  let h = 2166136261; // FNV-1a
+  for (let i = 0; i < d.length; i++) { h ^= d.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return "PRV-" + (h >>> 0).toString(36).toUpperCase().padStart(7, "0").slice(0, 5);
+}
+export const normCode = (c) => String(c || "").trim().toUpperCase().replace(/\s+/g, "");

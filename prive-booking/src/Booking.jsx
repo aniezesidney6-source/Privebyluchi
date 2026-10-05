@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { SERVICES, EXTRAS, TIMES } from "./data";
-import { fmt, BANK, whatsappLink } from "./theme";
+import { fmt, BANK, whatsappLink, refCode, normCode, REFERRAL_DISCOUNT } from "./theme";
 import { IconCheck, IconBloom, IconWhatsapp } from "./Icons";
 
 const SUPABASE_URL = "https://vsabwbuzwhxfwqjpiyvs.supabase.co";
@@ -53,6 +53,10 @@ export default function Booking() {
   const [datesLoaded, setDatesLoaded] = useState(false);
   const [dateError, setDateError] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [refInput, setRefInput] = useState("");
+  const [refStatus, setRefStatus] = useState(""); // "" | checking | valid | invalid | self
+  const [refName, setRefName] = useState("");
+  const refApplied = refStatus === "valid";
 
   const copyAcct = () => {
     navigator.clipboard?.writeText(BANK.number)
@@ -105,9 +109,25 @@ export default function Booking() {
   const availableSizes = isButterfly ? (variant ? service?.variants[variant] : null) : service?.sizes;
   const basePrice = availableSizes && size ? availableSizes[size] || 0 : 0;
   const extraFees = EXTRAS.reduce((sum, e) => sum + (extras[e.key] ? e.price : 0), 0);
-  const total = basePrice + extraFees;
+  const subtotal = basePrice + extraFees;
+  const discount = refApplied && subtotal > 0 ? REFERRAL_DISCOUNT : 0;
+  const total = Math.max(0, subtotal - discount);
   const deposit = Math.round(total * 0.3);
   const extrasLabel = EXTRAS.filter((e) => extras[e.key]).map((e) => e.label).join(", ") || "None";
+
+  // Validate a referral code against existing clients (can't refer yourself).
+  const applyReferral = async () => {
+    const code = normCode(refInput);
+    if (!/^PRV-[A-Z0-9]{5}$/.test(code)) { setRefStatus("invalid"); setRefName(""); return; }
+    if (form.phone && refCode(form.phone) === code) { setRefStatus("self"); setRefName(""); return; }
+    setRefStatus("checking");
+    try {
+      const r = await fetch(`/api/referral-check?code=${encodeURIComponent(code)}`);
+      const d = await r.json();
+      if (d.valid) { setRefStatus("valid"); setRefName(d.referrerFirstName || ""); }
+      else { setRefStatus("invalid"); setRefName(""); }
+    } catch { setRefStatus("invalid"); setRefName(""); }
+  };
 
   const canNext1 = selected && size && (!isButterfly || variant);
   const canNext2 = date && time && !dateError;
@@ -134,8 +154,8 @@ SERVICE DETAILS
 Service: ${service?.name}${isButterfly && variant ? ` (${variant})` : ""}
 Size / Type: ${size}
 Add-ons: ${extrasLabel}
-Total: ${fmt(total)}
-Deposit Due (30%): ${fmt(deposit)}
+Total: ${fmt(total)}${refApplied ? ` (referral −${fmt(discount)})` : ""}
+Deposit Due (30%): ${fmt(deposit)}${refApplied ? `\nReferred by code: ${normCode(refInput)}` : ""}
 
 APPOINTMENT
 ───────────────
@@ -179,6 +199,13 @@ Notes: ${form.notes || "None"}
               headers: { ...SUPA_HEADERS, Prefer: "return=minimal" },
               body: JSON.stringify({ date, time }),
             });
+          } else if (refApplied) {
+            // Persist the referral link if the optional column exists (non-fatal:
+            // the booking is already saved, so a missing column just skips this).
+            fetch(`${SUPABASE_URL}/rest/v1/bookings?date=eq.${date}&time=eq.${encodeURIComponent(time)}`, {
+              method: "PATCH", headers: { ...SUPA_HEADERS, Prefer: "return=minimal" },
+              body: JSON.stringify({ referred_by: normCode(refInput) }),
+            }).catch(() => {});
           }
         } catch { /* non-blocking */ }
 
@@ -194,6 +221,7 @@ Notes: ${form.notes || "None"}
             size: size || null,
             addons: extrasLabel,
             total, deposit, date, time,
+            referred_by: refApplied ? normCode(refInput) : null,
           }),
         }).catch(() => {});
 
@@ -243,6 +271,22 @@ Notes: ${form.notes || "None"}
               <p style={{ fontSize: 13, color: "var(--muted)", marginTop: 14 }}>
                 A confirmation and receipt is on its way to <b>{form.email}</b>. Your slot is confirmed once we receive your deposit, and we'll confirm your travel logistics on WhatsApp.
               </p>
+              {refCode(form.phone) && (
+                <div style={{ marginTop: 18, background: "var(--green)", borderRadius: 16, padding: "18px 20px", textAlign: "center" }}>
+                  <div style={{ color: "#CFE4D8", fontSize: 12, letterSpacing: 1.5, textTransform: "uppercase", fontWeight: 700 }}>Refer a friend, you both save</div>
+                  <div style={{ display: "inline-block", marginTop: 10, background: "#fff", color: "var(--green)", fontFamily: "var(--head)", fontWeight: 700, fontSize: 22, letterSpacing: 2, padding: "8px 22px", borderRadius: 999 }}>{refCode(form.phone)}</div>
+                  <div style={{ color: "#fff", fontSize: 13, lineHeight: 1.5, marginTop: 10 }}>
+                    Your friend gets {fmt(REFERRAL_DISCOUNT)} off their first booking, and you get {fmt(REFERRAL_DISCOUNT)} off your next one.
+                  </div>
+                  <a
+                    className="pill" style={{ marginTop: 12, background: "#fff", color: "var(--green)" }}
+                    href={`https://wa.me/?text=${encodeURIComponent(`Hey! I book my braids with Privé by Luchi, they come to you anywhere in Lagos 🌸 Use my code ${refCode(form.phone)} and get ${fmt(REFERRAL_DISCOUNT)} off your first booking: https://privebyluchi.com`)}`}
+                    target="_blank" rel="noreferrer"
+                  >
+                    Share on WhatsApp
+                  </a>
+                </div>
+              )}
               <p className="sig">Thank you for choosing us 🤭💕 — Privé by Luchi</p>
             </div>
           </div>
@@ -411,6 +455,28 @@ Notes: ${form.notes || "None"}
                 <textarea className="textarea" rows={3} placeholder="Any specific requests, colours or hair concerns…" value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} />
               </div>
 
+              <div className="field">
+                <span className="b-label">Referral code (optional)</span>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <input
+                    className="input" style={{ flex: 1 }} placeholder="e.g. PRV-ABCDE"
+                    value={refInput}
+                    onChange={(e) => { setRefInput(e.target.value); if (refStatus) { setRefStatus(""); setRefName(""); } }}
+                    onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); applyReferral(); } }}
+                  />
+                  <button
+                    type="button" onClick={applyReferral}
+                    disabled={!refInput.trim() || refStatus === "checking"}
+                    style={{ padding: "0 20px", borderRadius: 12, border: "1.5px solid var(--green)", background: refApplied ? "var(--green)" : "#fff", color: refApplied ? "#fff" : "var(--green)", fontWeight: 600, fontFamily: "var(--body)", cursor: "pointer", whiteSpace: "nowrap", opacity: !refInput.trim() ? 0.5 : 1 }}
+                  >
+                    {refStatus === "checking" ? "Checking…" : refApplied ? "Applied ✓" : "Apply"}
+                  </button>
+                </div>
+                {refStatus === "valid" && <div style={{ color: "var(--green)", fontSize: 13, marginTop: 6 }}>🎉 {refName ? `${refName}'s code applied` : "Code applied"}, {fmt(REFERRAL_DISCOUNT)} off your booking!</div>}
+                {refStatus === "invalid" && <div style={{ color: "#C0392B", fontSize: 13, marginTop: 6 }}>That code isn't valid. Double-check with the friend who shared it.</div>}
+                {refStatus === "self" && <div style={{ color: "#C0392B", fontSize: 13, marginTop: 6 }}>You can't use your own referral code 🙂</div>}
+              </div>
+
               <div className="note" style={{ marginBottom: 18 }}>
                 <IconBloom style={{ width: 18, height: 18, color: "var(--pink)", flexShrink: 0 }} />
                 <span>As a mobile studio we travel to your address anywhere in Nigeria, <b>transport / logistics is covered by the client</b> and confirmed by DM after booking.</span>
@@ -443,6 +509,7 @@ Notes: ${form.notes || "None"}
                   ...(isButterfly && variant ? [["Length Range", variant]] : []),
                   ["Size / Type", size],
                   ["Add-ons", extrasLabel],
+                  ...(refApplied ? [["Subtotal", fmt(subtotal)], [`Referral discount (${normCode(refInput)})`, `− ${fmt(discount)}`]] : []),
                   ["Total", fmt(total)],
                 ].map(([l, v]) => (
                   <div className="summary__row" key={l}><span>{l}</span><b>{v}</b></div>

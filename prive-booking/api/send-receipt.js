@@ -21,6 +21,34 @@ const TIKTOK = "https://www.tiktok.com/@priveby_luchi";
 
 const PINK = "#E85A8A", PINK_DEEP = "#C63E6C", GREEN = "#1E4D3E", INK = "#26201F", MUTED = "#7A6E70", CREAM = "#FFFBF9", LINE = "#EFE3E8";
 
+const REFERRAL_DISCOUNT = 3000, REFERRAL_REWARD = 3000;
+function refCode(phone) {
+  const d = String(phone || "").replace(/\D/g, "");
+  if (d.length < 7) return "";
+  let h = 2166136261;
+  for (let i = 0; i < d.length; i++) { h ^= d.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return "PRV-" + (h >>> 0).toString(36).toUpperCase().padStart(7, "0").slice(0, 5);
+}
+const normCode = (c) => String(c || "").trim().toUpperCase().replace(/\s+/g, "");
+// Find the client whose referral code matches `code` (recompute each client's code).
+async function findReferrer(code) {
+  const want = normCode(code);
+  if (!/^PRV-[A-Z0-9]{5}$/.test(want)) return null;
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/bookings?select=name,phone,email&phone=not.is.null`, {
+    headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
+  });
+  const rows = await r.json();
+  if (!Array.isArray(rows)) return null;
+  const seen = new Set();
+  for (const b of rows) {
+    const d = String(b.phone || "").replace(/\D/g, "");
+    if (!d || seen.has(d)) continue;
+    seen.add(d);
+    if (refCode(d) === want && b.email) return { name: b.name, email: b.email };
+  }
+  return null;
+}
+
 const esc = (s) =>
   String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const naira = (n) => "₦" + Number(n || 0).toLocaleString("en-NG");
@@ -101,6 +129,13 @@ function buildHtml(b) {
       <tr><td style="padding:4px 0;color:${INK};font-size:14px;line-height:1.5;">• Need to reschedule? Please give at least 48 hours notice on WhatsApp.</td></tr>
     </table>`);
 
+  const myCode = refCode(b.phone);
+  const refer = myCode ? `<div style="background:${GREEN};border-radius:16px;padding:20px 22px;margin:0 0 16px;text-align:center;">
+      <div style="font-size:12px;letter-spacing:1.5px;text-transform:uppercase;color:#CFE4D8;font-weight:700;margin:0 0 8px;">Refer a friend</div>
+      <div style="color:#fff;font-size:14px;line-height:1.55;margin-bottom:12px;">Share your code, your friend gets <b>${naira(REFERRAL_DISCOUNT)} off</b> their first booking, and you get <b>${naira(REFERRAL_REWARD)} off</b> your next one.</div>
+      <div style="display:inline-block;background:#fff;color:${GREEN};font-family:Georgia,serif;font-weight:700;font-size:22px;letter-spacing:2px;padding:10px 22px;border-radius:999px;">${esc(myCode)}</div>
+    </div>` : "";
+
   return `<!doctype html><html><body style="margin:0;padding:0;background:${CREAM};">
   <div style="display:none;max-height:0;overflow:hidden;opacity:0;">Your Privé by Luchi booking for ${esc(style)} on ${esc(prettyDate(b.date))} is received.</div>
   <table width="100%" cellpadding="0" cellspacing="0" style="background:${CREAM};padding:28px 14px;">
@@ -116,7 +151,7 @@ function buildHtml(b) {
             Thank you for booking with Privé by Luchi. Here's a summary of your appointment, we can't wait to have you in the chair. 🌸
           </div>
         </td></tr>
-        <tr><td>${appt}${receipt}${logistics}${next}${deposit}${prep}</td></tr>
+        <tr><td>${appt}${receipt}${logistics}${next}${deposit}${prep}${refer}</td></tr>
         <tr><td style="padding:10px 2px 0;">
           <a href="${waChat}" style="display:block;text-align:center;background:${PINK};color:#ffffff;text-decoration:none;font-weight:600;font-size:15px;padding:13px 20px;border-radius:999px;">Message us on WhatsApp</a>
         </td></tr>
@@ -350,8 +385,34 @@ export default async function handler(req, res) {
     adminOk = admin.ok;
   } catch { /* ignore */ }
 
+  // 3) If this booking used a referral code, reward the referrer by email.
+  //    Non-fatal and can't reward self.
+  let referrerNotified = false;
+  try {
+    if (b.referred_by && refCode(b.phone) !== normCode(b.referred_by)) {
+      const ref = await findReferrer(b.referred_by);
+      if (ref) {
+        const rr = await sendResend(key, {
+          from: FROM,
+          to: [ref.email],
+          reply_to: REPLY_TO,
+          subject: `🎉 Someone booked with your Privé referral code`,
+          html: `<div style="font-family:'Segoe UI',Helvetica,Arial,sans-serif;max-width:520px;margin:0 auto;padding:26px 18px;color:${INK};">
+            <div style="text-align:center;font-family:Georgia,serif;font-size:22px;color:${GREEN};font-weight:700;">Privé <span style="color:${PINK};">✿</span> by Luchi</div>
+            <p style="font-size:16px;line-height:1.6;margin-top:18px;">Hi ${esc(firstName(ref.name))}, great news, someone just booked using your referral code. 💖</p>
+            <p style="font-size:16px;line-height:1.6;">That means <b>${naira(REFERRAL_REWARD)} off your next appointment</b>. Just mention it when you book and we'll apply it.</p>
+            <p style="margin-top:20px;"><a href="https://privebyluchi.com/#book" style="background:${PINK};color:#fff;text-decoration:none;font-weight:600;padding:12px 22px;border-radius:999px;">Book your next style</a></p>
+            <p style="color:${MUTED};font-size:12.5px;margin-top:24px;">Keep sharing your code, the rewards keep coming. Privé by Luchi · Lagos, Nigeria</p>
+          </div>`,
+          text: `Hi ${firstName(ref.name)}, someone booked with your Privé referral code! That's ${naira(REFERRAL_REWARD)} off your next appointment, just mention it when you book. https://privebyluchi.com/#book`,
+        });
+        referrerNotified = rr.ok;
+      }
+    }
+  } catch { /* ignore */ }
+
   if (!cust.ok) {
     return res.status(502).json({ error: "Email provider error", detail: cust.error, adminOk });
   }
-  return res.status(200).json({ ok: true, id: cust.id, adminOk });
+  return res.status(200).json({ ok: true, id: cust.id, adminOk, referrerNotified });
 }
