@@ -1,6 +1,6 @@
 // Shared Flutterwave v4 logic for /api/flw-charge (create a pay-with-transfer
-// charge), /api/flw-verify (the page polling for payment) and /api/flw-webhook
-// (Flutterwave's server-to-server notice). The underscore prefix keeps Vercel
+// charge), /api/flw-verify (the page polling for payment) and /api/flw-sweep
+// (catch-up for transfers the page missed). The underscore prefix keeps Vercel
 // from exposing this file as its own route.
 //
 // Env: FLW_CLIENT_ID, FLW_CLIENT_SECRET (v4 API keys), RESEND_API_KEY.
@@ -193,7 +193,7 @@ export async function settle(chargeId) {
   const covers = expected != null && amount >= expected;
 
   if (covers) {
-    // Conditional update so the browser callback and the webhook can race
+    // Conditional update so the page poll and the sweep can race
     // safely: only the call that actually flips the status sends emails.
     const upd = await fetch(`${SUPABASE_URL}/rest/v1/bookings?id=eq.${b.id}&status=not.in.(${PAID.join(",")})`, {
       method: "PATCH", headers: { ...SB, Prefer: "return=representation" },
@@ -227,4 +227,25 @@ export async function settle(chargeId) {
   });
 
   return { paid: covers, reason: covers ? undefined : "amount_mismatch" };
+}
+
+// Catch-up for transfers the page didn't see land (tab closed early). Lists
+// recent successful charges and settles any Privé booking references.
+// settle() re-fetches each charge, so this only ever acts on verified data.
+export async function sweep(days = 7) {
+  if (!configured()) return { checked: 0, settled: 0, reason: "not_configured" };
+  const from = new Date(Date.now() - days * 864e5).toISOString();
+  let checked = 0, settled = 0;
+  for (let page = 1; page <= 10; page++) {
+    const { data } = await flw(`/charges?status=succeeded&from=${encodeURIComponent(from)}&page=${page}&size=50`);
+    const list = Array.isArray(data) ? data : [];
+    for (const c of list) {
+      if (!decodeRef(c.reference)) continue; // another business's payment
+      checked++;
+      const out = await settle(c.id);
+      if (out.paid && !out.already) settled++;
+    }
+    if (list.length < 50) break;
+  }
+  return { checked, settled };
 }

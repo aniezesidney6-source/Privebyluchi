@@ -265,7 +265,7 @@ Notes: ${form.notes || "None"}
   };
 
   // While the client makes the transfer, check every few seconds until it
-  // lands or the one-off account expires (the webhook confirms it either way).
+  // lands or the one-off account expires (/api/flw-sweep catches any it misses).
   useEffect(() => {
     if (payState !== "waiting" || !transfer?.charge_id) return;
     const until = transfer.expires_at ? new Date(transfer.expires_at).getTime() : Date.now() + 3600e3;

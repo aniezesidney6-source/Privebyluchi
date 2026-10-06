@@ -1,7 +1,7 @@
 // ── Flutterwave v4 deposit by transfer ─────────────────
 // /api/flw-charge asks Flutterwave for a one-off account number for this
 // booking's exact deposit; the page then polls /api/flw-verify until the
-// transfer lands (the webhook confirms it too, if the tab is closed). Only
+// transfer lands (/api/flw-sweep catches it if the tab is closed). Only
 // the server decides the amount and marks a booking paid.
 
 async function post(url, body) {
