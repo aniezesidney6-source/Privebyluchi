@@ -42,7 +42,18 @@ export function decodeRef(ref) {
 // ── v4 API access ─────────────────────────────────────
 const BASE = process.env.FLW_BASE_URL ||
   (process.env.FLW_ENV === "sandbox" ? "https://developersandbox-api.flutterwave.com" : "https://f4bexperience.flutterwave.com");
-export const configured = () => Boolean(process.env.FLW_CLIENT_ID && process.env.FLW_CLIENT_SECRET);
+// Pasted values often carry stray whitespace or quotes; strip them.
+const clean = (v) => String(v || "").trim().replace(/^["']|["']$/g, "").trim();
+const CLIENT_ID = () => clean(process.env.FLW_CLIENT_ID);
+const CLIENT_SECRET = () => clean(process.env.FLW_CLIENT_SECRET);
+export const configured = () => Boolean(CLIENT_ID() && CLIENT_SECRET());
+
+// Format-only description of the keys for auth errors: never the values.
+function keyShape() {
+  const id = CLIENT_ID(), secret = CLIENT_SECRET();
+  return `id ${id.length} chars${/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id) ? " (uuid)" : " (not a uuid)"}, ` +
+    `secret ${secret.length} chars${/^FLW(SECK|PUBK)/.test(secret) ? " (looks like a v3 key)" : ""}${secret === id ? " (same as id)" : ""}`;
+}
 
 let token = { value: "", expires: 0 }; // reused across warm invocations
 async function accessToken() {
@@ -51,14 +62,14 @@ async function accessToken() {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({
-      client_id: process.env.FLW_CLIENT_ID,
-      client_secret: process.env.FLW_CLIENT_SECRET,
+      client_id: CLIENT_ID(),
+      client_secret: CLIENT_SECRET(),
       grant_type: "client_credentials",
     }),
   });
   const d = await r.json().catch(() => ({}));
   if (!d.access_token) {
-    throw new Error(`Flutterwave auth failed (${r.status}): ${d.error_description || d.error || "no token"}`);
+    throw new Error(`Flutterwave auth failed (${r.status}): ${d.error_description || d.error || "no token"} [${keyShape()}]`);
   }
   token = { value: d.access_token, expires: Date.now() + Math.max(30, (d.expires_in || 600) - 60) * 1000 };
   return token.value;
