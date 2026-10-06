@@ -618,8 +618,7 @@ const TABS = [
 
 /* ---------- December early-access email ---------- */
 // Sends the early-access email to every past client via /api/december-announce.
-// Needs an email sign-in (the server checks the Supabase session); the
-// master password can't authorise a mass send.
+// The server checks the admin session (email sign-in or quick password).
 function DecemberSend({ token }) {
   const [info, setInfo] = useState(null); // { recipients, left } once counted
   const [state, setState] = useState(""); // "" | busy | test_sent | sent | error | signin
@@ -657,7 +656,7 @@ function DecemberSend({ token }) {
         Each gets their referral code. Send a test to yourself first, then send to everyone. The homepage banner goes up on 9 October.
       </div>
       {state === "signin" ? (
-        <div style={{ fontSize: 14 }}>Sign in with your email and password (not the quick password) to send this.</div>
+        <div style={{ fontSize: 14 }}>Your session has expired. Refresh the page and sign in again to send this.</div>
       ) : (
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
           <button style={btn("transparent", "#fff", "rgba(255,255,255,.4)")} disabled={state === "busy"} onClick={() => run("test=1", "test_sent")}>Send test to me</button>
@@ -691,8 +690,8 @@ export default function AdminDashboard() {
 
   // Admin API calls use the signed-in user's token when available, otherwise
   // the anon key (master-password fallback). This guarantees no lock-out.
-  const MASTER = "Chigozie100500";
-  const tokenRef = useRef("");
+  const tokenRef = useRef("");   // Supabase session (email sign-in)
+  const adminRef = useRef("");   // server-signed session (quick password)
   const authHeaders = () => ({ apikey: SUPABASE_KEY, Authorization: `Bearer ${tokenRef.current || SUPABASE_KEY}`, "Content-Type": "application/json" });
 
   const enter = () => { setAuthed(true); fetchBookings(); fetchVisits(); fetchBlocked(); };
@@ -701,7 +700,17 @@ export default function AdminDashboard() {
     setSigningIn(true); setPwError("");
     // Quick master-password access (leave email blank) — uses the anon key.
     if (!email.trim()) {
-      if (pw === MASTER) { tokenRef.current = ""; enter(); } else { setPwError("Incorrect password."); }
+      // Checked on the server: the password is no longer in this page's code.
+      try {
+        const res = await fetch("/api/admin-login", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ password: pw }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && data.token) { tokenRef.current = ""; adminRef.current = data.token; enter(); }
+        else if (data.error === "not_configured") setPwError("Quick sign-in isn't set up. Sign in with your email.");
+        else setPwError("Incorrect password.");
+      } catch { setPwError("Network error. Please try again."); }
       setSigningIn(false); return;
     }
     try {
@@ -877,7 +886,7 @@ export default function AdminDashboard() {
       <div className="adm-wrap">
         {tab === "overview" && (
           <>
-            <DecemberSend token={() => tokenRef.current} />
+            <DecemberSend token={() => tokenRef.current || adminRef.current} />
             <div style={sectionTitle}>Website Visitors</div>
             <VisitorAnalytics visits={visits} bookings={bookings} loading={visitsLoading} />
           </>

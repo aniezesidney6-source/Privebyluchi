@@ -8,9 +8,10 @@
 //   Send a test to Luchi: POST /api/december-announce?test=1
 //   Send to everyone:     POST /api/december-announce?send=1
 // All need  Authorization: Bearer <token>, where the token is CRON_SECRET or a
-// signed-in admin's Supabase session (the admin dashboard's send button).
+// signed-in admin session: Supabase email login or quick-password token.
 
 import { SEASON, seasonDays } from "../src/season.js";
+import { tokenOk } from "./_admin.js";
 
 const FROM = "Privé by Luchi <bookings@privebyluchi.com>";
 const REPLY_TO = "luxuriousluchihairs@gmail.com";
@@ -70,14 +71,15 @@ async function sb(path) {
   return Array.isArray(d) ? d : [];
 }
 
-// CRON_SECRET, or the session token of a user signed in to the admin
-// dashboard (only Luchi has a Supabase Auth account; the anon key is not a user).
+// CRON_SECRET, or the session of someone signed in to the admin dashboard:
+// a Supabase Auth user (the anon key is not a user) or a quick-password token.
 async function authorized(req) {
   const auth = String(req.headers.authorization || "");
   const secret = process.env.CRON_SECRET;
   if (secret && auth === `Bearer ${secret}`) return true;
   const token = auth.replace(/^Bearer\s+/, "");
   if (!token || token === SUPABASE_KEY) return false;
+  if (token.startsWith("adm.")) return tokenOk(token); // quick-password session
   try {
     const r = await fetch(`${SUPABASE_URL}/auth/v1/user`, { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${token}` } });
     const u = await r.json().catch(() => ({}));
