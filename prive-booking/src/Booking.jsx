@@ -3,7 +3,7 @@ import { SERVICES, EXTRAS, TIMES } from "./data";
 import { fmt, BANK, whatsappLink, refCode, normCode, REFERRAL_DISCOUNT } from "./theme";
 import { IconCheck, IconBloom, IconWhatsapp } from "./Icons";
 import { peakFor, depositRateFor } from "./season";
-import { createTransfer, checkTransfer } from "./pay";
+import { payDeposit } from "./pay";
 
 const SUPABASE_URL = "https://vsabwbuzwhxfwqjpiyvs.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZzYWJ3YnV6d2h4ZndxanBpeXZzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY3Nzk5MjQsImV4cCI6MjA5MjM1NTkyNH0.So0iq2E58JGBi7DLujGsFp6d_NV3doM0d_dxy7OgzFw";
@@ -63,9 +63,7 @@ export default function Booking() {
   const [datesLoaded, setDatesLoaded] = useState(false);
   const [dateError, setDateError] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [payState, setPayState] = useState(""); // "" | opening | waiting | paid | error | manual
-  const [transfer, setTransfer] = useState(null); // one-off Flutterwave account for this deposit
-  const [acctCopied, setAcctCopied] = useState(false);
+  const [payState, setPayState] = useState(""); // "" | opening | paid | unverified | error | manual
   const [refInput, setRefInput] = useState("");
   const [refStatus, setRefStatus] = useState(""); // "" | checking | valid | invalid | self
   const [refName, setRefName] = useState("");
@@ -255,34 +253,9 @@ Notes: ${form.notes || "None"}
   const startPayment = async () => {
     setPayState("opening");
     try {
-      const out = await createTransfer(date, time);
-      if (out.error === "not_configured") { setPayState("manual"); return; }
-      if (out.error === "already_paid") { setPayState("paid"); return; }
-      if (out.error || !out.account_number) { console.warn("Deposit payment setup failed", out); setPayState("error"); return; }
-      setTransfer(out);
-      setPayState("waiting");
-    } catch { setPayState("error"); }
-  };
-
-  // While the client makes the transfer, check every few seconds until it
-  // lands or the one-off account expires (/api/flw-sweep catches any it misses).
-  useEffect(() => {
-    if (payState !== "waiting" || !transfer?.charge_id) return;
-    const until = transfer.expires_at ? new Date(transfer.expires_at).getTime() : Date.now() + 3600e3;
-    const id = setInterval(async () => {
-      if (Date.now() > until) { clearInterval(id); return; }
-      try {
-        const r = await checkTransfer(transfer.charge_id);
-        if (r.paid) { clearInterval(id); setPayState("paid"); }
-      } catch { /* keep waiting */ }
-    }, 6000);
-    return () => clearInterval(id);
-  }, [payState, transfer]);
-
-  const copyTransfer = () => {
-    navigator.clipboard?.writeText(transfer?.account_number || "")
-      .then(() => { setAcctCopied(true); setTimeout(() => setAcctCopied(false), 1800); })
-      .catch(() => {});
+      const out = await payDeposit(date, time);
+      setPayState(out === "closed" ? "" : out === "already_paid" ? "paid" : out);
+    } catch (e) { console.warn("Deposit checkout failed", e); setPayState("error"); }
   };
 
   if (submitted) {
@@ -303,32 +276,16 @@ Notes: ${form.notes || "None"}
                   <b>Deposit received ✓</b>
                   <span>Your {fmt(deposit)} deposit is confirmed and {date} is locked in. A confirmation is on its way to {form.email}.</span>
                 </div>
-              ) : payState === "waiting" && transfer ? (
-                <>
-                  <p>Transfer exactly <b style={{ color: "var(--pink-deep)" }}>{fmt(transfer.amount)}</b> to this account. It's just for your booking, and your date locks the moment it lands, no proof needed.</p>
-                  <div className="paycard paycard--live">
-                    <div className="paycard__label">Deposit · {fmt(transfer.amount)}</div>
-                    {transfer.bank_name && <div className="paycard__row"><span>Bank</span><b>{transfer.bank_name}</b></div>}
-                    <div className="paycard__row">
-                      <span>Account Number</span>
-                      <button type="button" className="paycard__num" onClick={copyTransfer} title="Tap to copy">
-                        {transfer.account_number} <small>{acctCopied ? "Copied ✓" : "Copy"}</small>
-                      </button>
-                    </div>
-                    <div className="paycard__row"><span>Account Name</span><b>{transfer.account_name}</b></div>
-                    {transfer.expires_at && <div className="paycard__row"><span>Valid until</span><b>{new Date(transfer.expires_at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</b></div>}
-                  </div>
-                  <div className="paywait"><i /> Waiting for your transfer…</div>
-                </>
               ) : payState !== "manual" ? (
                 <>
                   <p>
-                    Lock in your date now: pay your <b style={{ color: "var(--pink-deep)" }}>{fmt(deposit)}</b> deposit ({depositPct}%) by bank transfer and it confirms automatically.
+                    Lock in your date now: pay your <b style={{ color: "var(--pink-deep)" }}>{fmt(deposit)}</b> deposit ({depositPct}%) by card, bank transfer or USSD, and it confirms automatically.
                   </p>
                   <button className="pill pill--pink" style={{ width: "100%" }} onClick={startPayment} disabled={payState === "opening"}>
-                    {payState === "opening" ? "Getting your account number…" : `Pay ${fmt(deposit)} deposit`}
+                    {payState === "opening" ? "Opening secure checkout…" : `Pay ${fmt(deposit)} deposit`}
                   </button>
-                  {payState === "error" && <div className="err" style={{ marginTop: 12 }}>We couldn't set that up just now. Try again, or pay to the account below and send proof on WhatsApp.</div>}
+                  {payState === "unverified" && <div className="err" style={{ marginTop: 12 }}>We couldn't confirm that payment automatically. If you were charged, send us your receipt on WhatsApp and we'll sort it out.</div>}
+                  {payState === "error" && <div className="err" style={{ marginTop: 12 }}>Secure checkout didn't open. Try again, or pay to the account below and send proof on WhatsApp.</div>}
                   <p style={{ fontSize: 13, marginTop: 18 }}>Or pay Luchi directly and send proof on WhatsApp:</p>
                 </>
               ) : (
@@ -337,7 +294,7 @@ Notes: ${form.notes || "None"}
                 </p>
               )}
 
-              {payState !== "paid" && payState !== "waiting" && <>
+              {payState !== "paid" && <>
               <div className="paycard">
                 <div className="paycard__label">Deposit · {fmt(deposit)}</div>
                 <div className="paycard__row"><span>Bank</span><b>{BANK.bank}</b></div>

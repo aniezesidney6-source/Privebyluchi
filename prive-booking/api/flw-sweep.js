@@ -1,4 +1,4 @@
-// Settles Flutterwave transfers the booking page didn't see land. Runs daily
+// Settles Flutterwave payments the booking page didn't see complete. Runs daily
 // (vercel.json) and whenever the admin dashboard loads. Replaces a webhook,
 // since the Flutterwave account's single webhook URL is used elsewhere.
 // Safe to call openly: it only marks bookings whose payment Flutterwave
@@ -10,8 +10,7 @@ export default async function handler(req, res) {
   try {
     return res.status(200).json(await sweep());
   } catch (e) {
-    // Error text only (auth status / Flutterwave message), never credentials.
-    console.error("flw-sweep:", e.message);
+        console.error("flw-sweep:", e.message);
     return res.status(200).json({ checked: 0, settled: 0, error: e.message });
   }
 }
