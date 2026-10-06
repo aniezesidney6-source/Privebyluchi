@@ -1,12 +1,14 @@
 // One-off: emails every past client their 48-hour early access to December
 // dates, with their referral code. Not scheduled; trigger it by hand.
 //
-// Env: RESEND_API_KEY, CRON_SECRET (required here, it's a mass send).
+// Env: RESEND_API_KEY, CRON_SECRET.
 //
-//   Preview the email:   GET  /api/december-announce?preview=1   (opens HTML)
+//   Preview the email:    GET  /api/december-announce?preview=1   (opens HTML)
+//   Count recipients:     GET  /api/december-announce?dry=1
 //   Send a test to Luchi: POST /api/december-announce?test=1
 //   Send to everyone:     POST /api/december-announce?send=1
-// All three need the header  Authorization: Bearer <CRON_SECRET>.
+// All need  Authorization: Bearer <token>, where the token is CRON_SECRET or a
+// signed-in admin's Supabase session (the admin dashboard's send button).
 
 import { SEASON, seasonDays } from "../src/season.js";
 
@@ -68,11 +70,35 @@ async function sb(path) {
   return Array.isArray(d) ? d : [];
 }
 
-export default async function handler(req, res) {
+// CRON_SECRET, or the session token of a user signed in to the admin
+// dashboard (only Luchi has a Supabase Auth account; the anon key is not a user).
+async function authorized(req) {
+  const auth = String(req.headers.authorization || "");
   const secret = process.env.CRON_SECRET;
-  if (!secret || req.headers.authorization !== `Bearer ${secret}`) {
-    return res.status(401).json({ error: "Unauthorized" });
-  }
+  if (secret && auth === `Bearer ${secret}`) return true;
+  const token = auth.replace(/^Bearer\s+/, "");
+  if (!token || token === SUPABASE_KEY) return false;
+  try {
+    const r = await fetch(`${SUPABASE_URL}/auth/v1/user`, { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${token}` } });
+    const u = await r.json().catch(() => ({}));
+    return r.ok && Boolean(u && u.id);
+  } catch { return false; }
+}
+
+async function pastClients() {
+  // Unique past clients by email, most recent booking first.
+  const rows = await sb("bookings?select=name,email,phone,created_at&email=not.is.null&order=created_at.desc");
+  const seen = new Set();
+  return rows.filter((b) => {
+    const e = String(b.email || "").trim().toLowerCase();
+    if (!emailOk(e) || seen.has(e)) return false;
+    seen.add(e);
+    return true;
+  });
+}
+
+export default async function handler(req, res) {
+  if (!(await authorized(req))) return res.status(401).json({ error: "Unauthorized" });
   const key = process.env.RESEND_API_KEY;
   const q = req.query || {};
 
@@ -90,6 +116,7 @@ export default async function handler(req, res) {
     res.setHeader("Content-Type", "text/html; charset=utf-8");
     return res.status(200).send(buildHtml("Adaeze", "08012345678", left));
   }
+  if (q.dry) return res.status(200).json({ recipients: (await pastClients()).length, left });
   if (req.method !== "POST" || !(q.test || q.send)) {
     return res.status(400).json({ error: "Use ?preview=1 (GET), or POST with ?test=1 or ?send=1" });
   }
@@ -97,20 +124,7 @@ export default async function handler(req, res) {
 
   const subject = `First pick of December, before it opens to everyone ✿`;
 
-  let recipients;
-  if (q.test) {
-    recipients = [{ name: "Luchi", email: ADMIN, phone: "" }];
-  } else {
-    // Unique past clients by email, most recent booking first.
-    const rows = await sb("bookings?select=name,email,phone,created_at&email=not.is.null&order=created_at.desc");
-    const seen = new Set();
-    recipients = rows.filter((b) => {
-      const e = String(b.email || "").trim().toLowerCase();
-      if (!emailOk(e) || seen.has(e)) return false;
-      seen.add(e);
-      return true;
-    });
-  }
+  const recipients = q.test ? [{ name: "Luchi", email: ADMIN, phone: "" }] : await pastClients();
 
   // Resend's batch endpoint takes up to 100 emails per call.
   let sent = 0;
@@ -122,7 +136,11 @@ export default async function handler(req, res) {
     }));
     const r = await fetch("https://api.resend.com/emails/batch", {
       method: "POST",
-      headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+      headers: {
+        Authorization: `Bearer ${key}`, "Content-Type": "application/json",
+        // A second click within 24h re-sends nothing (Resend dedupes by key).
+        ...(q.send ? { "Idempotency-Key": `december-${SEASON.year}-early-${i}` } : {}),
+      },
       body: JSON.stringify(chunk),
     });
     if (r.ok) sent += chunk.length;
