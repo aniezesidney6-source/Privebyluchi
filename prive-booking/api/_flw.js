@@ -3,7 +3,8 @@
 // payments the page missed). The underscore prefix keeps Vercel from
 // exposing this file as its own route.
 //
-// Env: FLW_PUBLIC_KEY (FLWPUBK-…), FLW_SECRET_KEY (FLWSECK-…), RESEND_API_KEY.
+// Env: FLW_PUBLIC_KEY (FLWPUBK-…), FLW_SECRET_KEY or FLUTTERWAVE_SECRET_KEY
+// (FLWSECK-…), RESEND_API_KEY.
 // FLW_CLIENT_SECRET is accepted in place of FLW_SECRET_KEY when it holds a v3 key.
 
 import { SERVICES, EXTRAS, TIMES } from "../src/data.js";
@@ -43,7 +44,7 @@ export function decodeRef(ref) {
 const clean = (v) => String(v || "").trim().replace(/^["']|["']$/g, "").trim();
 const PUBLIC_KEY = () => clean(process.env.FLW_PUBLIC_KEY);
 function SECRET_KEY() {
-  const k = clean(process.env.FLW_SECRET_KEY);
+  const k = clean(process.env.FLW_SECRET_KEY || process.env.FLUTTERWAVE_SECRET_KEY);
   if (k) return k;
   const legacy = clean(process.env.FLW_CLIENT_SECRET);
   return /^FLWSECK/.test(legacy) ? legacy : "";
