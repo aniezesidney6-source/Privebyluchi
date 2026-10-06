@@ -5,7 +5,7 @@
 //
 //   Preview the email:    GET  /api/december-announce?preview=1   (opens HTML)
 //   Count recipients:     GET  /api/december-announce?dry=1
-//   Send a test to Luchi: POST /api/december-announce?test=1
+//   Send a test:          POST /api/december-announce?test=1[&to=you@example.com]
 //   Send to everyone:     POST /api/december-announce?send=1
 // All need  Authorization: Bearer <token>, where the token is CRON_SECRET or a
 // signed-in admin session: Supabase email login or quick-password token.
@@ -134,7 +134,9 @@ export default async function handler(req, res) {
 
   const subject = `Up to ${maxEarlyPct(SERVICES)}% off December, and you get first pick ✿`;
 
-  const recipients = q.test ? [{ name: "Luchi", email: ADMIN, phone: "" }] : await pastClients();
+  // A test goes to ?to= when given (any address the admin types), else Luchi's inbox.
+  const testTo = emailOk(q.to) ? String(q.to).trim() : ADMIN;
+  const recipients = q.test ? [{ name: "Luchi", email: testTo, phone: "" }] : await pastClients();
 
   // Resend's batch endpoint takes up to 100 emails per call.
   let sent = 0;
