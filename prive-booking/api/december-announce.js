@@ -49,7 +49,7 @@ function buildHtml(name, phone, left) {
       <p style="font-size:16px;line-height:1.7;margin:0 0 14px;">December bookings open to everyone in 48 hours. Because you've sat in the Privé chair before, you get first pick, today.</p>
       <p style="font-size:16px;line-height:1.7;margin:0 0 20px;">We braid one client a day, so there are only <b>${left}</b> December dates in total. Weddings, owambes, Christmas, flights home: once a date goes, it's gone.</p>
       <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin-bottom:8px;">${tiers}
-        <tr><td style="padding:8px 0;color:${MUTED};font-size:14px;">Deposit to secure</td><td style="padding:8px 0;color:${PINK_DEEP};font-size:14px;font-weight:600;text-align:right;">${pct}%, by bank transfer</td></tr>
+        <tr><td style="padding:8px 0;color:${MUTED};font-size:14px;">Deposit to secure</td><td style="padding:8px 0;color:${PINK_DEEP};font-size:14px;font-weight:600;text-align:right;">${pct}%, by card, transfer or USSD</td></tr>
       </table>
       <p style="text-align:center;margin:28px 0;"><a href="https://privebyluchi.com/december" style="background:${PINK};color:#fff;text-decoration:none;font-weight:600;font-size:16px;padding:15px 30px;border-radius:999px;display:inline-block;">See the open dates</a></p>
     </div>
