@@ -258,7 +258,7 @@ Notes: ${form.notes || "None"}
       const out = await createTransfer(date, time);
       if (out.error === "not_configured") { setPayState("manual"); return; }
       if (out.error === "already_paid") { setPayState("paid"); return; }
-      if (out.error || !out.account_number) { setPayState("error"); return; }
+      if (out.error || !out.account_number) { console.warn("Deposit payment setup failed", out); setPayState("error"); return; }
       setTransfer(out);
       setPayState("waiting");
     } catch { setPayState("error"); }
