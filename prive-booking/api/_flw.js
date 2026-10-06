@@ -8,7 +8,7 @@
 // FLW_CLIENT_SECRET is accepted in place of FLW_SECRET_KEY when it holds a v3 key.
 
 import { SERVICES, EXTRAS, TIMES } from "../src/data.js";
-import { peakFor, depositRateFor } from "../src/season.js";
+import { seasonFor, earlyDiscountFor, depositRateFor } from "../src/season.js";
 import { REFERRAL_DISCOUNT } from "../src/theme.js";
 
 const SUPABASE_URL = "https://vsabwbuzwhxfwqjpiyvs.supabase.co";
@@ -97,11 +97,15 @@ export function expectedDeposit(b) {
   if (!base) return null;
   const chosen = String(b.addons || "").split(",").map((s) => s.trim()).filter(Boolean);
   const extras = EXTRAS.filter((e) => chosen.includes(e.label)).reduce((a, e) => a + e.price, 0);
-  const peak = peakFor(b.date)?.fee || 0;
+  const peak = seasonFor(b.date)?.uplift || 0;
+  // Early-booking discount is judged from when the booking was made; if that
+  // isn't recorded, give the client the benefit of the doubt.
+  const bookedOn = b.created_at ? new Date(b.created_at).toLocaleDateString("en-CA", { timeZone: "Africa/Lagos" }) : "1970-01-01";
+  const early = earlyDiscountFor(b.date, bookedOn);
   // Without a referred_by column we can't tell if a referral was used, so
   // allow for the discount rather than flag every referred client.
   const discount = b.referred_by || !("referred_by" in b) ? REFERRAL_DISCOUNT : 0;
-  const total = Math.max(0, base + extras + peak - discount);
+  const total = Math.max(0, base + extras + peak - early - discount);
   return Math.round(total * depositRateFor(b.date));
 }
 

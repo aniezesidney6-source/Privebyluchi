@@ -53,7 +53,7 @@ const esc = (s) =>
   String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const naira = (n) => "₦" + Number(n || 0).toLocaleString("en-NG");
 const firstName = (n) => (String(n || "").trim().split(/\s+/)[0] || "love");
-// Deposit share as a whole percent (30% normally, more on peak-season dates).
+// Deposit share as a whole percent (30% normally, 50% on December dates).
 const depPct = (b) => (Number(b.total) > 0 ? Math.round((Number(b.deposit) / Number(b.total)) * 100) : 30);
 
 function prettyDate(d) {
@@ -96,7 +96,8 @@ function buildHtml(b) {
 
   const receipt = card("Receipt", `
     <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
-      ${b.peak_fee ? row(`${b.peak_label || "Peak"} date fee (incl.)`, naira(b.peak_fee)) : ""}
+      ${b.season_fee ? row(`${b.season_label || "Seasonal"} pricing (incl.)`, naira(b.season_fee)) : ""}
+      ${b.early_discount ? row("Early-booking discount 🎉", "− " + naira(b.early_discount), true) : ""}
       ${row("Service total", naira(b.total))}
       ${row(`Deposit to secure (${depPct(b)}%)`, naira(b.deposit), true)}
       ${row("Balance on the day", naira(balance) + " <span style='font-weight:400;color:" + MUTED + ";font-size:12px;'>+ logistics</span>")}
@@ -191,7 +192,8 @@ function buildText(b) {
     ``,
     `RECEIPT`,
     `Service total: ${naira(b.total)}`,
-    ...(b.peak_fee ? [`${b.peak_label || "Peak"} date fee (incl.): ${naira(b.peak_fee)}`] : []),
+    ...(b.season_fee ? [`${b.season_label || "Seasonal"} pricing (incl.): ${naira(b.season_fee)}`] : []),
+    ...(b.early_discount ? [`Early-booking discount: −${naira(b.early_discount)}`] : []),
     `Deposit to secure (${depPct(b)}%): ${naira(b.deposit)}`,
     `Balance on the day: ${naira(balance)} + logistics`,
     ``,

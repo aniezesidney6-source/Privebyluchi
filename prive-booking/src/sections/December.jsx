@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import "../styles.css";
 import Logo from "../Logo";
-import { SEASON, seasonDays, peakFor, isPublic } from "../season";
+import { SEASON, seasonDays, isPublic, maxEarlyPct } from "../season";
+import { SERVICES } from "../data";
 import { fmt, whatsappLink } from "../theme";
 import { trackVisit } from "../track";
 
@@ -109,11 +110,8 @@ export default function December() {
         <div className="dec-cal__head">
           <h2>December, <em>day by day</em></h2>
           <div className="dec-legend">
-            {SEASON.tiers.map((t) => (
-              <span key={t.label} className={t.fee === Math.max(...SEASON.tiers.map((x) => x.fee)) ? "hot" : ""}>
-                <b>{t.label}</b> {t.from}–{t.to} Dec · +{fmt(t.fee)}
-              </span>
-            ))}
+            <span className="hot"><b>Book early, save {fmt(SEASON.earlyDiscount)}</b> up to {maxEarlyPct(SERVICES)}% off</span>
+            <span>Two weeks or more ahead</span>
           </div>
         </div>
 
@@ -123,7 +121,7 @@ export default function December() {
             if (!d) return <div key={`b${i}`} className="dec-day dec-day--blank" aria-hidden="true" />;
             const st = taken ? stateOf(d) : "loading";
             const n = +d.slice(8);
-            const hot = peakFor(d)?.fee === Math.max(...SEASON.tiers.map((x) => x.fee));
+            const hot = +d.slice(8) >= 20; // the festive weeks
             const label = new Date(d + "T00:00:00").toLocaleDateString("en-NG", { weekday: "long", day: "numeric", month: "long" });
             const inner = (
               <>
@@ -144,19 +142,21 @@ export default function December() {
       {/* ── III. The terms, plainly ──────────────────── */}
       <section className="dec-terms">
         <div className="dec-terms__lede">
-          <h2>Why December <em>costs more</em></h2>
+          <h2>Book early, <em>save more</em></h2>
           <p>
-            It's the one month every client wants the same three weeks. The peak fee keeps the calendar fair, and a
-            {" "}{Math.round(SEASON.depositRate * 100)}% deposit means every date that's taken is a date that's kept.
+            Our December discount: book your date at least two weeks ahead and {fmt(SEASON.earlyDiscount)} comes
+            straight off, up to {maxEarlyPct(SERVICES)}% off your style. A {Math.round(SEASON.depositRate * 100)}% deposit locks it in.
           </p>
         </div>
         <ol className="dec-terms__list">
-          {SEASON.tiers.map((t) => (
-            <li key={t.label}>
-              <span className="dec-terms__fig">+{fmt(t.fee)}</span>
-              <span><b>{t.label}</b>{t.from}–{t.to} December, on top of your usual style price.</span>
-            </li>
-          ))}
+          <li>
+            <span className="dec-terms__fig dec-terms__fig--save">−{fmt(SEASON.earlyDiscount)}</span>
+            <span><b>Early-booking discount</b>Up to {maxEarlyPct(SERVICES)}% off when you book two weeks or more ahead. Applied automatically.</span>
+          </li>
+          <li>
+            <span className="dec-terms__fig">+{fmt(SEASON.uplift)}</span>
+            <span><b>December &amp; January pricing</b>Added to your usual style price, before your discount.</span>
+          </li>
           <li>
             <span className="dec-terms__fig">{Math.round(SEASON.depositRate * 100)}%</span>
             <span><b>Deposit secures it</b>Pay by card, bank transfer or USSD at checkout. Balance on the day.</span>
