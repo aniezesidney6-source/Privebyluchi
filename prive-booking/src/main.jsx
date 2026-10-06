@@ -6,6 +6,7 @@ import NotFound from './sections/NotFound'
 const path = window.location.pathname.replace(/\/+$/, '') || '/'
 const isAdmin = path === '/admin'
 const isHome = path === '/' || path === '/index.html'
+const isDecember = path === '/december'
 const root = createRoot(document.getElementById('root'))
 
 // Dismiss the loading screen once the app has mounted (with a short minimum
@@ -34,6 +35,11 @@ if (isAdmin) {
   // Admin pulls in the chart library — load it only here so the public site stays light.
   import('./Admin').then(({ default: Admin }) => {
     root.render(<StrictMode><Admin /></StrictMode>)
+    dismissLoader()
+  })
+} else if (isDecember) {
+  import('./sections/December').then(({ default: December }) => {
+    root.render(<StrictMode><December /></StrictMode>)
     dismissLoader()
   })
 } else if (isHome) {

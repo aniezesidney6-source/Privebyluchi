@@ -691,6 +691,9 @@ export default function AdminDashboard() {
 
   const fetchBookings = async () => {
     setLoading(true);
+    // Pick up any Flutterwave transfers that landed after the client left the
+    // page, so statuses below are current (capped so the dashboard never hangs).
+    await Promise.race([fetch("/api/flw-sweep").catch(() => {}), new Promise((r) => setTimeout(r, 4000))]);
     try {
       const res = await fetch(`${SUPABASE_URL}/rest/v1/bookings?select=*&order=date.asc,time.asc`, { headers: authHeaders() });
       let data = await res.json();

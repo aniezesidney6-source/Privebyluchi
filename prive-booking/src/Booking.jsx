@@ -2,6 +2,8 @@ import { useState, useEffect, useRef } from "react";
 import { SERVICES, EXTRAS, TIMES } from "./data";
 import { fmt, BANK, whatsappLink, refCode, normCode, REFERRAL_DISCOUNT } from "./theme";
 import { IconCheck, IconBloom, IconWhatsapp } from "./Icons";
+import { peakFor, depositRateFor } from "./season";
+import { createTransfer, checkTransfer } from "./pay";
 
 const SUPABASE_URL = "https://vsabwbuzwhxfwqjpiyvs.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZzYWJ3YnV6d2h4ZndxanBpeXZzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY3Nzk5MjQsImV4cCI6MjA5MjM1NTkyNH0.So0iq2E58JGBi7DLujGsFp6d_NV3doM0d_dxy7OgzFw";
@@ -9,6 +11,14 @@ const SUPA_HEADERS = { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_K
 const WEB3FORMS_KEY = "9fc37df0-a3dd-4874-b8e4-711c80aaee35";
 
 const minDate = () => { const d = new Date(); d.setDate(d.getDate() + 2); return d.toISOString().split("T")[0]; };
+
+// /?date=2026-12-21#book (from the /december page) pre-fills the date.
+const urlDate = () => {
+  try {
+    const d = new URLSearchParams(window.location.search).get("date") || "";
+    return /^\d{4}-\d{2}-\d{2}$/.test(d) && d >= minDate() ? d : "";
+  } catch { return ""; }
+};
 
 const STEPS = ["Service", "Schedule", "Details", "Confirm"];
 
@@ -39,7 +49,7 @@ export default function Booking() {
   const [variant, setVariant] = useState(null);
   const [size, setSize] = useState(null);
   const [extras, setExtras] = useState({ extraLength: false, boho: false, beads: false });
-  const [date, setDate] = useState("");
+  const [date, setDate] = useState(urlDate);
   const [time, setTime] = useState("");
   const [form, setForm] = useState({ name: "", phone: "", email: "", address: "", notes: "" });
   const [agreed, setAgreed] = useState(false);
@@ -53,6 +63,9 @@ export default function Booking() {
   const [datesLoaded, setDatesLoaded] = useState(false);
   const [dateError, setDateError] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [payState, setPayState] = useState(""); // "" | opening | waiting | paid | error | manual
+  const [transfer, setTransfer] = useState(null); // one-off Flutterwave account for this deposit
+  const [acctCopied, setAcctCopied] = useState(false);
   const [refInput, setRefInput] = useState("");
   const [refStatus, setRefStatus] = useState(""); // "" | checking | valid | invalid | self
   const [refName, setRefName] = useState("");
@@ -85,12 +98,17 @@ export default function Booking() {
       const res = await fetch(`${SUPABASE_URL}/rest/v1/bookings?select=date`, { headers: SUPA_HEADERS });
       const data = await res.json();
       setBookedDates([...new Set(data.map((b) => b.date))]);
+      if (date && data.some((b) => b.date === date)) setDateError(true);
     } catch { setBookedDates([]); }
     try {
       const res = await fetch(`${SUPABASE_URL}/rest/v1/blocked_dates?select=date`, { headers: SUPA_HEADERS });
       const data = await res.json();
-      if (Array.isArray(data)) setBlockedDates(data.map((b) => b.date));
+      if (Array.isArray(data)) {
+        setBlockedDates(data.map((b) => b.date));
+        if (date && data.some((b) => b.date === date)) setDateError(true);
+      }
     } catch { /* table may not exist yet */ }
+    if (date) fetchBookedTimes(date);
   };
 
   const fetchBookedTimes = async (d) => {
@@ -109,10 +127,13 @@ export default function Booking() {
   const availableSizes = isButterfly ? (variant ? service?.variants[variant] : null) : service?.sizes;
   const basePrice = availableSizes && size ? availableSizes[size] || 0 : 0;
   const extraFees = EXTRAS.reduce((sum, e) => sum + (extras[e.key] ? e.price : 0), 0);
-  const subtotal = basePrice + extraFees;
+  const peak = peakFor(date);
+  const peakFee = peak && basePrice ? peak.fee : 0;
+  const subtotal = basePrice + extraFees + peakFee;
   const discount = refApplied && subtotal > 0 ? REFERRAL_DISCOUNT : 0;
   const total = Math.max(0, subtotal - discount);
-  const deposit = Math.round(total * 0.3);
+  const depositPct = Math.round(depositRateFor(date) * 100);
+  const deposit = Math.round(total * depositRateFor(date));
   const extrasLabel = EXTRAS.filter((e) => extras[e.key]).map((e) => e.label).join(", ") || "None";
 
   // Validate a referral code against existing clients (can't refer yourself).
@@ -153,9 +174,9 @@ SERVICE DETAILS
 ───────────────
 Service: ${service?.name}${isButterfly && variant ? ` (${variant})` : ""}
 Size / Type: ${size}
-Add-ons: ${extrasLabel}
+Add-ons: ${extrasLabel}${peak ? `\nPeak date fee (${peak.label}): ${fmt(peakFee)}` : ""}
 Total: ${fmt(total)}${refApplied ? ` (referral −${fmt(discount)})` : ""}
-Deposit Due (30%): ${fmt(deposit)}${refApplied ? `\nReferred by code: ${normCode(refInput)}` : ""}
+Deposit Due (${depositPct}%): ${fmt(deposit)}${refApplied ? `\nReferred by code: ${normCode(refInput)}` : ""}
 
 APPOINTMENT
 ───────────────
@@ -221,6 +242,7 @@ Notes: ${form.notes || "None"}
             size: size || null,
             addons: extrasLabel,
             total, deposit, date, time,
+            peak_fee: peakFee || null, peak_label: peak ? peak.label : null,
             referred_by: refApplied ? normCode(refInput) : null,
           }),
         }).catch(() => {});
@@ -228,6 +250,39 @@ Notes: ${form.notes || "None"}
         setSubmitted(true);
       } else { setSendError(true); }
     } catch { setSendError(true); } finally { setSending(false); }
+  };
+
+  const startPayment = async () => {
+    setPayState("opening");
+    try {
+      const out = await createTransfer(date, time);
+      if (out.error === "not_configured") { setPayState("manual"); return; }
+      if (out.error === "already_paid") { setPayState("paid"); return; }
+      if (out.error || !out.account_number) { setPayState("error"); return; }
+      setTransfer(out);
+      setPayState("waiting");
+    } catch { setPayState("error"); }
+  };
+
+  // While the client makes the transfer, check every few seconds until it
+  // lands or the one-off account expires (/api/flw-sweep catches any it misses).
+  useEffect(() => {
+    if (payState !== "waiting" || !transfer?.charge_id) return;
+    const until = transfer.expires_at ? new Date(transfer.expires_at).getTime() : Date.now() + 3600e3;
+    const id = setInterval(async () => {
+      if (Date.now() > until) { clearInterval(id); return; }
+      try {
+        const r = await checkTransfer(transfer.charge_id);
+        if (r.paid) { clearInterval(id); setPayState("paid"); }
+      } catch { /* keep waiting */ }
+    }, 6000);
+    return () => clearInterval(id);
+  }, [payState, transfer]);
+
+  const copyTransfer = () => {
+    navigator.clipboard?.writeText(transfer?.account_number || "")
+      .then(() => { setAcctCopied(true); setTimeout(() => setAcctCopied(false), 1800); })
+      .catch(() => {});
   };
 
   if (submitted) {
@@ -243,10 +298,46 @@ Notes: ${form.notes || "None"}
                 Your request for <b style={{ color: "var(--pink-deep)" }}>{service?.name}</b>
                 {isButterfly && variant ? ` (${variant})` : ""} on <b style={{ color: "var(--green)" }}>{date} at {time}</b> has been received.
               </p>
-              <p>
-                To lock in your appointment, pay your <b style={{ color: "var(--pink-deep)" }}>{fmt(deposit)}</b> deposit (30%) to the account below, then send us your proof of payment.
-              </p>
+              {payState === "paid" ? (
+                <div className="paid">
+                  <b>Deposit received ✓</b>
+                  <span>Your {fmt(deposit)} deposit is confirmed and {date} is locked in. A confirmation is on its way to {form.email}.</span>
+                </div>
+              ) : payState === "waiting" && transfer ? (
+                <>
+                  <p>Transfer exactly <b style={{ color: "var(--pink-deep)" }}>{fmt(transfer.amount)}</b> to this account. It's just for your booking, and your date locks the moment it lands, no proof needed.</p>
+                  <div className="paycard paycard--live">
+                    <div className="paycard__label">Deposit · {fmt(transfer.amount)}</div>
+                    {transfer.bank_name && <div className="paycard__row"><span>Bank</span><b>{transfer.bank_name}</b></div>}
+                    <div className="paycard__row">
+                      <span>Account Number</span>
+                      <button type="button" className="paycard__num" onClick={copyTransfer} title="Tap to copy">
+                        {transfer.account_number} <small>{acctCopied ? "Copied ✓" : "Copy"}</small>
+                      </button>
+                    </div>
+                    <div className="paycard__row"><span>Account Name</span><b>{transfer.account_name}</b></div>
+                    {transfer.expires_at && <div className="paycard__row"><span>Valid until</span><b>{new Date(transfer.expires_at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</b></div>}
+                  </div>
+                  <div className="paywait"><i /> Waiting for your transfer…</div>
+                </>
+              ) : payState !== "manual" ? (
+                <>
+                  <p>
+                    Lock in your date now: pay your <b style={{ color: "var(--pink-deep)" }}>{fmt(deposit)}</b> deposit ({depositPct}%) by bank transfer and it confirms automatically.
+                  </p>
+                  <button className="pill pill--pink" style={{ width: "100%" }} onClick={startPayment} disabled={payState === "opening"}>
+                    {payState === "opening" ? "Getting your account number…" : `Pay ${fmt(deposit)} deposit`}
+                  </button>
+                  {payState === "error" && <div className="err" style={{ marginTop: 12 }}>We couldn't set that up just now. Try again, or pay to the account below and send proof on WhatsApp.</div>}
+                  <p style={{ fontSize: 13, marginTop: 18 }}>Or pay Luchi directly and send proof on WhatsApp:</p>
+                </>
+              ) : (
+                <p>
+                  To lock in your appointment, pay your <b style={{ color: "var(--pink-deep)" }}>{fmt(deposit)}</b> deposit ({depositPct}%) to the account below, then send us your proof of payment.
+                </p>
+              )}
 
+              {payState !== "paid" && payState !== "waiting" && <>
               <div className="paycard">
                 <div className="paycard__label">Deposit · {fmt(deposit)}</div>
                 <div className="paycard__row"><span>Bank</span><b>{BANK.bank}</b></div>
@@ -267,9 +358,10 @@ Notes: ${form.notes || "None"}
               >
                 <IconWhatsapp style={{ width: 18, height: 18 }} /> Send Proof of Payment
               </a>
+              </>}
 
               <p style={{ fontSize: 13, color: "var(--muted)", marginTop: 14 }}>
-                A confirmation and receipt is on its way to <b>{form.email}</b>. Your slot is confirmed once we receive your deposit, and we'll confirm your travel logistics on WhatsApp.
+                A confirmation and receipt is on its way to <b>{form.email}</b>. {payState === "paid" ? "We'll" : "Your slot is confirmed once we receive your deposit, and we'll"} confirm your travel logistics on WhatsApp.
               </p>
               {refCode(form.phone) && (
                 <div style={{ marginTop: 18, background: "var(--green)", borderRadius: 16, padding: "18px 20px", textAlign: "center" }}>
@@ -366,7 +458,7 @@ Notes: ${form.notes || "None"}
               {size && (
                 <div className="pricebar">
                   <div><small>Estimated Total</small><div className="total">{fmt(total)}</div></div>
-                  <div className="r"><small>Deposit (30%)</small><div className="dep">{fmt(deposit)}</div></div>
+                  <div className="r"><small>Deposit ({depositPct}%)</small><div className="dep">{fmt(deposit)}</div></div>
                 </div>
               )}
 
@@ -399,7 +491,13 @@ Notes: ${form.notes || "None"}
                 </div>
               </div>
 
-              {dateError && <div className="err">✕ This date is fully booked, please choose another day.</div>}
+              {dateError && <div className="err">✕ This date is fully booked, please choose another day.{peak && <> December dates go fast: <a href="/december#waitlist" style={{ textDecoration: "underline" }}>join the waitlist</a>.</>}</div>}
+
+              {peak && !dateError && (
+                <div className="note peak">
+                  ✦ <span><b>{peak.label} date.</b> December is our busiest month with one chair a day, so this date carries a {fmt(peak.fee)} peak fee and a {depositPct}% deposit secures it. New total: <b>{fmt(total)}</b>.</span>
+                </div>
+              )}
 
               <div className="field" style={{ marginTop: 8 }}>
                 <span className="b-label">Preferred Time</span>
@@ -484,7 +582,7 @@ Notes: ${form.notes || "None"}
 
               <div className={`checkrow ${agreed ? "on" : ""}`} onClick={() => setAgreed(!agreed)}>
                 <div className="box">{agreed && <IconCheck style={{ width: 13, height: 13 }} />}</div>
-                <p>I understand a <b>30% non-refundable deposit</b> is required to confirm my booking, and cancellations must be made at least <b>48 hours in advance</b> to avoid forfeiting the deposit.</p>
+                <p>I understand a <b>{depositPct}% non-refundable deposit</b> is required to confirm my booking, and cancellations must be made at least <b>48 hours in advance</b> to avoid forfeiting the deposit.</p>
               </div>
 
               <div className="b-actions">
@@ -509,12 +607,13 @@ Notes: ${form.notes || "None"}
                   ...(isButterfly && variant ? [["Length Range", variant]] : []),
                   ["Size / Type", size],
                   ["Add-ons", extrasLabel],
+                  ...(peak ? [[`${peak.label} date`, `+ ${fmt(peakFee)}`]] : []),
                   ...(refApplied ? [["Subtotal", fmt(subtotal)], [`Referral discount (${normCode(refInput)})`, `− ${fmt(discount)}`]] : []),
                   ["Total", fmt(total)],
                 ].map(([l, v]) => (
                   <div className="summary__row" key={l}><span>{l}</span><b>{v}</b></div>
                 ))}
-                <div className="summary__row hi"><span>Deposit Due (30%)</span><b>{fmt(deposit)}</b></div>
+                <div className="summary__row hi"><span>Deposit Due ({depositPct}%)</span><b>{fmt(deposit)}</b></div>
               </div>
 
               <div className="summary">

@@ -13,6 +13,7 @@ import Ceo from "./sections/CEO";
 import HairCare from "./sections/HairCare";
 import Faq from "./sections/Faq";
 import Footer from "./sections/Footer";
+import { SEASON, isPublic } from "./season";
 
 const REVEAL_SELECTOR =
   ".section-head, .work-card, .video-card, .review-shot, .celeb, .care-card, .ceo__photo, .ceo__bio";
@@ -44,6 +45,11 @@ export default function App() {
 
   return (
     <>
+      {isPublic() && new Date() < new Date(SEASON.year, SEASON.month, 1) && (
+        <a className="dec-bar" href="/december">
+          <b>December dates are open.</b> One chair a day, and they go fast.<span>See what's left →</span>
+        </a>
+      )}
       <Nav />
       <Hero />
       <Strip />
