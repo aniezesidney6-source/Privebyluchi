@@ -146,7 +146,7 @@ function buildHtml(b) {
     <tr><td align="center">
       <table width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;font-family:'Segoe UI',Helvetica,Arial,sans-serif;">
         <tr><td style="text-align:center;padding:4px 0 22px;">
-          <div style="font-family:Georgia,'Times New Roman',serif;font-size:26px;color:${GREEN};font-weight:700;">Privé <span style="color:${PINK};">✿</span> by Luchi</div>
+          <div style="line-height:0;"><img src="https://privebyluchi.com/email/logo-green.png" width="170" height="33" alt="Privé by Luchi" style="display:inline-block;border:0;outline:none;width:170px;height:auto;"></div>
           <div style="font-size:12px;letter-spacing:2px;text-transform:uppercase;color:${PINK};font-weight:700;margin-top:6px;">Booking received</div>
         </td></tr>
         <tr><td style="padding:0 2px 18px;">
@@ -286,7 +286,7 @@ function buildAdminHtml(b) {
   <table width="100%" cellpadding="0" cellspacing="0" style="background:${CREAM};padding:26px 14px;"><tr><td align="center">
     <table width="100%" style="max-width:560px;font-family:'Segoe UI',Helvetica,Arial,sans-serif;">
       <tr><td style="text-align:center;padding-bottom:18px;">
-        <div style="font-family:Georgia,serif;font-size:22px;color:${GREEN};font-weight:700;">Privé <span style="color:${PINK};">✿</span> by Luchi</div>
+        <div style="line-height:0;"><img src="https://privebyluchi.com/email/logo-green.png" width="170" height="33" alt="Privé by Luchi" style="display:inline-block;border:0;outline:none;width:170px;height:auto;"></div>
         <div style="font-size:12px;letter-spacing:2px;text-transform:uppercase;color:${PINK};font-weight:700;margin-top:6px;">New booking</div>
       </td></tr>
       <tr><td><div style="background:#fff;border:1px solid ${LINE};border-radius:16px;padding:18px 20px;">
@@ -404,7 +404,7 @@ export default async function handler(req, res) {
           reply_to: REPLY_TO,
           subject: `🎉 Someone booked with your Privé referral code`,
           html: `<div style="font-family:'Segoe UI',Helvetica,Arial,sans-serif;max-width:520px;margin:0 auto;padding:26px 18px;color:${INK};">
-            <div style="text-align:center;font-family:Georgia,serif;font-size:22px;color:${GREEN};font-weight:700;">Privé <span style="color:${PINK};">✿</span> by Luchi</div>
+            <div style="text-align:center;line-height:0;"><img src="https://privebyluchi.com/email/logo-green.png" width="170" height="33" alt="Privé by Luchi" style="display:inline-block;border:0;outline:none;width:170px;height:auto;"></div>
             <p style="font-size:16px;line-height:1.6;margin-top:18px;">Hi ${esc(firstName(ref.name))}, great news, someone just booked using your referral code. 💖</p>
             <p style="font-size:16px;line-height:1.6;">That means <b>${naira(REFERRAL_REWARD)} off your next appointment</b>. Just mention it when you book and we'll apply it.</p>
             <p style="margin-top:20px;"><a href="https://privebyluchi.com/#book" style="background:${PINK};color:#fff;text-decoration:none;font-weight:600;padding:12px 22px;border-radius:999px;">Book your next style</a></p>

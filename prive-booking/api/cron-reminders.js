@@ -52,7 +52,7 @@ function buildHtml(dateStr, rows) {
   <table width="100%" cellpadding="0" cellspacing="0" style="background:${CREAM};padding:26px 14px;"><tr><td align="center">
     <table width="100%" style="max-width:560px;font-family:'Segoe UI',Helvetica,Arial,sans-serif;">
       <tr><td style="text-align:center;padding-bottom:16px;">
-        <div style="font-family:Georgia,serif;font-size:22px;color:${GREEN};font-weight:700;">Privé <span style="color:${PINK};">✿</span> by Luchi</div>
+        <div style="line-height:0;"><img src="https://privebyluchi.com/email/logo-green.png" width="170" height="33" alt="Privé by Luchi" style="display:inline-block;border:0;outline:none;width:170px;height:auto;"></div>
         <div style="font-size:12px;letter-spacing:2px;text-transform:uppercase;color:${PINK};font-weight:700;margin-top:6px;">Tomorrow's appointments</div>
       </td></tr>
       <tr><td style="padding:0 2px 14px;color:${INK};font-size:15px;line-height:1.6;">

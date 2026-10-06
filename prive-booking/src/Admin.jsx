@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react";
+import Logo from "./Logo";
 import { ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, CartesianGrid, Legend, PieChart, Pie, Cell } from "recharts";
 
 const PINK = "#E85A8A", PINK_DEEP = "#C63E6C", PINK_TINT = "#FFF4F8";
@@ -47,7 +48,7 @@ function printSchedule(list) {
       `<tr><td>${b.time || ""}</td><td>${b.name || "—"}</td><td>${(b.style || "—")}${b.size ? " (" + b.size + ")" : ""}</td><td>${b.phone || "—"}</td><td>${b.address || "—"}</td><td>${b.deposit != null ? "₦" + Number(b.deposit).toLocaleString() : "—"}</td></tr>`).join("");
     return `<h2>${new Date(d).toDateString()}</h2><table><thead><tr><th>Time</th><th>Client</th><th>Style</th><th>Phone</th><th>Address</th><th>Deposit</th></tr></thead><tbody>${rows}</tbody></table>`;
   }).join("");
-  w.document.write(`<html><head><title>Privé by Luchi — Schedule</title><style>body{font-family:system-ui,sans-serif;padding:26px;color:#26201F}h1{color:#1E4D3E;font-size:22px;margin:0 0 4px}h2{color:#C63E6C;font-size:15px;margin:22px 0 6px}table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:7px 10px;border-bottom:1px solid #eee;font-size:13px}th{color:#7A6E70;text-transform:uppercase;font-size:10px;letter-spacing:.05em}</style></head><body><h1>Privé by Luchi</h1><div style="color:#7A6E70;font-size:12px">Upcoming schedule · printed ${new Date().toLocaleString()}</div>${blocks || "<p>No upcoming bookings.</p>"}</body></html>`);
+  w.document.write(`<html><head><title>Privé by Luchi — Schedule</title><style>body{font-family:system-ui,sans-serif;padding:26px;color:#26201F}h1{color:#1E4D3E;font-size:22px;margin:0 0 4px}h2{color:#C63E6C;font-size:15px;margin:22px 0 6px}table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:7px 10px;border-bottom:1px solid #eee;font-size:13px}th{color:#7A6E70;text-transform:uppercase;font-size:10px;letter-spacing:.05em}</style></head><body><h1><img src="${window.location.origin}/email/logo-green.png" alt="Privé by Luchi" style="height:28px;width:auto"></h1><div style="color:#7A6E70;font-size:12px">Upcoming schedule · printed ${new Date().toLocaleString()}</div>${blocks || "<p>No upcoming bookings.</p>"}</body></html>`);
   w.document.close(); w.focus(); setTimeout(() => w.print(), 350);
 }
 
@@ -806,9 +807,9 @@ export default function AdminDashboard() {
     return (
       <div style={{ ...shell, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
         <div style={{ width: "100%", maxWidth: 380, textAlign: "center", background: "#fff", border: `1px solid ${LINE}`, borderRadius: 22, padding: 34, boxShadow: "0 18px 50px -24px rgba(30,77,62,.28)" }}>
-          <div style={{ color: PINK, fontSize: 12, letterSpacing: 4, textTransform: "uppercase", fontWeight: 600, marginBottom: 12 }}>Admin Access</div>
-          <h1 style={{ fontFamily: HEAD, fontSize: 26, fontWeight: 600, marginBottom: 4, color: GREEN }}>Privé by Luchi</h1>
-          <p style={{ color: MUTED, fontSize: 13, marginBottom: 26 }}>Booking Dashboard</p>
+          <img src="/favicon.svg" alt="" width="56" height="56" style={{ display: "block", margin: "0 auto 18px", borderRadius: 14 }} />
+          <h1 style={{ margin: "0 0 10px", lineHeight: 0 }}><Logo style={{ height: 30, width: "auto", fill: GREEN }} /></h1>
+          <div style={{ color: PINK, fontSize: 11.5, letterSpacing: 3, textTransform: "uppercase", fontWeight: 600, marginBottom: 26 }}>Admin · Booking Dashboard</div>
           <input
             type="email" placeholder="Email (optional)" value={email} autoComplete="username"
             onChange={(e) => setEmail(e.target.value)} onKeyDown={(e) => e.key === "Enter" && login()}
@@ -821,7 +822,7 @@ export default function AdminDashboard() {
           />
           {pwError && <p style={{ color: "#C0392B", fontSize: 13, marginTop: 8 }}>{pwError}</p>}
           <button onClick={login} disabled={signingIn || !pw} style={{ width: "100%", marginTop: 16, padding: "14px", background: PINK, border: "none", borderRadius: 999, color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer", fontFamily: BODY, opacity: signingIn || !pw ? 0.6 : 1 }}>{signingIn ? "Signing in…" : "Sign In ✿"}</button>
-          <p style={{ color: MUTED, fontSize: 11.5, marginTop: 12 }}>Sign in with your email + password, or just the master password.</p>
+          <p style={{ color: MUTED, fontSize: 11.5, marginTop: 12 }}>Sign in with your email + password, or just the admin password.</p>
         </div>
       </div>
     );
@@ -856,9 +857,12 @@ export default function AdminDashboard() {
 
       <div className="adm-head">
         <div className="adm-head-inner">
-          <div>
-            <div style={{ color: PINK, fontSize: 12, letterSpacing: 3, textTransform: "uppercase", fontWeight: 600, marginBottom: 4 }}>Admin Dashboard</div>
-            <h1 className="adm-head-h1" style={{ fontFamily: HEAD, fontSize: 24, fontWeight: 600, color: GREEN }}>Privé by Luchi</h1>
+          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+            <img src="/favicon.svg" alt="" width="42" height="42" style={{ borderRadius: 11, flexShrink: 0 }} />
+            <div>
+              <h1 className="adm-head-h1" style={{ margin: 0, lineHeight: 0 }}><Logo style={{ height: 24, width: "auto", fill: GREEN }} /></h1>
+              <div style={{ color: PINK, fontSize: 11, letterSpacing: 3, textTransform: "uppercase", fontWeight: 600, marginTop: 6 }}>Admin Dashboard</div>
+            </div>
           </div>
           <div style={{ textAlign: "right", flexShrink: 0 }}>
             <div style={{ color: MUTED, fontSize: 12, marginBottom: 2 }}>Total bookings</div>
@@ -951,7 +955,7 @@ export default function AdminDashboard() {
       </div>
 
       <div style={{ borderTop: `1px solid ${LINE}`, padding: "20px 24px", textAlign: "center" }}>
-        <p style={{ color: MUTED, fontSize: 13 }}>Privé by Luchi · Admin ✿</p>
+        <Logo style={{ height: 14, width: "auto", fill: MUTED, opacity: 0.7 }} />
       </div>
     </div>
   );
