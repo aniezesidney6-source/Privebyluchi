@@ -9,7 +9,9 @@ import { sweep } from "./_flw.js";
 export default async function handler(req, res) {
   try {
     return res.status(200).json(await sweep());
-  } catch {
-    return res.status(200).json({ checked: 0, settled: 0, reason: "error" });
+  } catch (e) {
+    // Error text only (auth status / Flutterwave message), never credentials.
+    console.error("flw-sweep:", e.message);
+    return res.status(200).json({ checked: 0, settled: 0, error: e.message });
   }
 }

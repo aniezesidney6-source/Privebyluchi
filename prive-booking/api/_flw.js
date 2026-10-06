@@ -57,7 +57,9 @@ async function accessToken() {
     }),
   });
   const d = await r.json().catch(() => ({}));
-  if (!d.access_token) throw new Error("Flutterwave auth failed");
+  if (!d.access_token) {
+    throw new Error(`Flutterwave auth failed (${r.status}): ${d.error_description || d.error || "no token"}`);
+  }
   token = { value: d.access_token, expires: Date.now() + Math.max(30, (d.expires_in || 600) - 60) * 1000 };
   return token.value;
 }
@@ -73,7 +75,7 @@ async function flw(path, init = {}) {
     },
   });
   const d = await r.json().catch(() => ({}));
-  return { ok: r.ok, data: d.data, raw: d };
+  return { ok: r.ok, status: r.status, data: d.data, raw: d };
 }
 
 async function bookingAt(date, time) {
@@ -96,7 +98,7 @@ export async function createTransferCharge(date, time) {
 
   const [first, ...rest] = String(b.name || "Privé client").trim().split(/\s+/);
   const digits = String(b.phone || "").replace(/\D/g, "").replace(/^234/, "").replace(/^0/, "");
-  const { ok, data, raw } = await flw("/orchestration/direct-charges", {
+  const { ok, status, data, raw } = await flw("/orchestration/direct-charges", {
     method: "POST",
     body: JSON.stringify({
       amount, currency: "NGN", reference,
@@ -109,12 +111,16 @@ export async function createTransferCharge(date, time) {
       meta: { booking_date: date, booking_time: time },
     }),
   });
-  if (!ok || !data) return { error: "flutterwave_error", detail: raw && (raw.message || raw.error) };
+  if (!ok || !data) {
+    console.error("flw-charge: Flutterwave rejected the charge", status, JSON.stringify(raw).slice(0, 1500));
+    return { error: "flutterwave_error", status, detail: raw && (raw.message || raw.error?.message || raw.error) };
+  }
 
   // Account details come back in next_action (and, on some responses, in
   // payment_method_details); read whichever is present.
   const na = data.next_action || {};
   const acct = na.requires_bank_transfer || data.payment_method_details?.bank_transfer || data.payment_method_details?.transfer || {};
+  if (!acct.account_number) console.error("flw-charge: no account number in response", JSON.stringify(data).slice(0, 1500));
   return {
     charge_id: data.id,
     amount,
@@ -237,7 +243,11 @@ export async function sweep(days = 7) {
   const from = new Date(Date.now() - days * 864e5).toISOString();
   let checked = 0, settled = 0;
   for (let page = 1; page <= 10; page++) {
-    const { data } = await flw(`/charges?status=succeeded&from=${encodeURIComponent(from)}&page=${page}&size=50`);
+    const { ok, status, data, raw } = await flw(`/charges?status=succeeded&from=${encodeURIComponent(from)}&page=${page}&size=50`);
+    if (!ok) {
+      console.error("flw-sweep: listing charges failed", status, JSON.stringify(raw).slice(0, 800));
+      return { checked, settled, error: "list_failed", status, detail: raw && (raw.message || raw.error?.message || raw.error) };
+    }
     const list = Array.isArray(data) ? data : [];
     for (const c of list) {
       if (!decodeRef(c.reference)) continue; // another business's payment
