@@ -1,10 +1,13 @@
-// Shared Flutterwave logic for /api/flw-verify (browser callback) and
-// /api/flw-webhook (Flutterwave's server-to-server backup). The underscore
-// prefix keeps Vercel from exposing this file as its own route.
+// Shared Flutterwave v4 logic for /api/flw-charge (create a pay-with-transfer
+// charge), /api/flw-verify (the page polling for payment) and /api/flw-webhook
+// (Flutterwave's server-to-server notice). The underscore prefix keeps Vercel
+// from exposing this file as its own route.
 //
-// Env: FLW_SECRET_KEY (verify API), RESEND_API_KEY (confirmation emails).
+// Env: FLW_CLIENT_ID, FLW_CLIENT_SECRET (v4 API keys), RESEND_API_KEY.
+// Optional: FLW_ENV=sandbox for test keys, or FLW_BASE_URL to override.
 
-import { SERVICES, EXTRAS } from "../src/data.js";
+import { randomUUID } from "crypto";
+import { SERVICES, EXTRAS, TIMES } from "../src/data.js";
 import { peakFor, depositRateFor } from "../src/season.js";
 import { REFERRAL_DISCOUNT } from "../src/theme.js";
 
@@ -23,14 +26,104 @@ const naira = (n) => "₦" + Number(n || 0).toLocaleString("en-NG");
 const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const firstName = (n) => (String(n || "").trim().split(/\s+/)[0] || "love");
 
-// "prive_<base64url(date|time)>_<nonce>" → { date, time }
+// The booking is identified by its date + time slot (one appointment a day),
+// packed into a short alphanumeric reference: PRV + yyyymmdd + T + slot + nonce.
+export function makeRef(date, time) {
+  const slot = TIMES.indexOf(time);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || slot < 0) return null;
+  return `PRV${date.replace(/-/g, "")}T${slot}${Date.now().toString(36).toUpperCase()}`;
+}
 export function decodeRef(ref) {
-  const m = /^prive_([A-Za-z0-9_-]+)_[a-z0-9]+$/.exec(String(ref || ""));
-  if (!m) return null;
-  try {
-    const [date, time] = Buffer.from(m[1], "base64url").toString("utf8").split("|");
-    return /^\d{4}-\d{2}-\d{2}$/.test(date) && time ? { date, time } : null;
-  } catch { return null; }
+  const m = /^PRV(\d{4})(\d{2})(\d{2})T(\d)[A-Z0-9]+$/.exec(String(ref || ""));
+  if (!m || !TIMES[+m[4]]) return null;
+  return { date: `${m[1]}-${m[2]}-${m[3]}`, time: TIMES[+m[4]] };
+}
+
+// ── v4 API access ─────────────────────────────────────
+const BASE = process.env.FLW_BASE_URL ||
+  (process.env.FLW_ENV === "sandbox" ? "https://developersandbox-api.flutterwave.com" : "https://f4bexperience.flutterwave.com");
+export const configured = () => Boolean(process.env.FLW_CLIENT_ID && process.env.FLW_CLIENT_SECRET);
+
+let token = { value: "", expires: 0 }; // reused across warm invocations
+async function accessToken() {
+  if (token.value && Date.now() < token.expires) return token.value;
+  const r = await fetch("https://idp.flutterwave.com/realms/flutterwave/protocol/openid-connect/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      client_id: process.env.FLW_CLIENT_ID,
+      client_secret: process.env.FLW_CLIENT_SECRET,
+      grant_type: "client_credentials",
+    }),
+  });
+  const d = await r.json().catch(() => ({}));
+  if (!d.access_token) throw new Error("Flutterwave auth failed");
+  token = { value: d.access_token, expires: Date.now() + Math.max(30, (d.expires_in || 600) - 60) * 1000 };
+  return token.value;
+}
+
+async function flw(path, init = {}) {
+  const r = await fetch(`${BASE}${path}`, {
+    ...init,
+    headers: {
+      Authorization: `Bearer ${await accessToken()}`,
+      "Content-Type": "application/json",
+      "X-Trace-Id": randomUUID(),
+      ...(init.method === "POST" ? { "X-Idempotency-Key": randomUUID() } : {}),
+    },
+  });
+  const d = await r.json().catch(() => ({}));
+  return { ok: r.ok, data: d.data, raw: d };
+}
+
+async function bookingAt(date, time) {
+  const q = `date=eq.${encodeURIComponent(date)}&time=eq.${encodeURIComponent(time)}`;
+  const rows = await fetch(`${SUPABASE_URL}/rest/v1/bookings?select=*&${q}&order=created_at.desc&limit=1`, { headers: SB })
+    .then((x) => x.json()).catch(() => []);
+  return Array.isArray(rows) ? rows[0] || null : null;
+}
+
+// Create a pay-with-transfer charge for a booking's deposit. The amount is
+// computed here from the price list; the browser only says which booking.
+export async function createTransferCharge(date, time) {
+  if (!configured()) return { error: "not_configured" };
+  const b = await bookingAt(date, time);
+  if (!b) return { error: "no_booking" };
+  if (PAID.includes(b.status)) return { error: "already_paid" };
+  const amount = expectedDeposit(b);
+  const reference = makeRef(date, time);
+  if (!amount || !reference || !b.email) return { error: "cannot_price" };
+
+  const [first, ...rest] = String(b.name || "Privé client").trim().split(/\s+/);
+  const digits = String(b.phone || "").replace(/\D/g, "").replace(/^234/, "").replace(/^0/, "");
+  const { ok, data, raw } = await flw("/orchestration/direct-charges", {
+    method: "POST",
+    body: JSON.stringify({
+      amount, currency: "NGN", reference,
+      customer: {
+        email: b.email,
+        name: { first: first || "Privé", last: rest.join(" ") || "Client" },
+        ...(digits.length >= 10 ? { phone: { country_code: "234", number: digits } } : {}),
+      },
+      payment_method: { type: "bank_transfer", bank_transfer: { account_expires_in: 3600 } },
+      meta: { booking_date: date, booking_time: time },
+    }),
+  });
+  if (!ok || !data) return { error: "flutterwave_error", detail: raw && (raw.message || raw.error) };
+
+  // Account details come back in next_action (and, on some responses, in
+  // payment_method_details); read whichever is present.
+  const na = data.next_action || {};
+  const acct = na.requires_bank_transfer || data.payment_method_details?.bank_transfer || data.payment_method_details?.transfer || {};
+  return {
+    charge_id: data.id,
+    amount,
+    account_number: acct.account_number,
+    bank_name: acct.account_bank_name || acct.bank_name,
+    account_name: acct.account_display_name || "Privé by Luchi (Flutterwave)",
+    expires_at: acct.account_expiration_datetime,
+    note: acct.note || na.payment_instruction?.note || "",
+  };
 }
 
 // Recompute the deposit from the price list rather than trusting the stored
@@ -78,26 +171,20 @@ function clientHtml(b, amount) {
   </div></body></html>`;
 }
 
-// Verify a Flutterwave transaction and, if it covers the deposit, mark the
-// booking paid. Idempotent: a booking already paid is not re-emailed.
-export async function settle(transactionId) {
-  const secret = process.env.FLW_SECRET_KEY;
-  if (!secret) return { paid: false, reason: "not_configured" };
-  if (!/^\d+$/.test(String(transactionId || ""))) return { paid: false, reason: "bad_id" };
+// Re-fetch a charge from Flutterwave and, if it succeeded and covers the
+// deposit, mark the booking paid. Idempotent: a paid booking isn't re-emailed.
+export async function settle(chargeId) {
+  if (!configured()) return { paid: false, reason: "not_configured" };
+  if (!/^[A-Za-z0-9_-]{4,80}$/.test(String(chargeId || ""))) return { paid: false, reason: "bad_id" };
 
-  const r = await fetch(`https://api.flutterwave.com/v3/transactions/${transactionId}/verify`, {
-    headers: { Authorization: `Bearer ${secret}` },
-  });
-  const tx = (await r.json().catch(() => ({}))).data;
-  if (!tx || tx.status !== "successful" || tx.currency !== "NGN") return { paid: false, reason: "not_successful" };
+  const { data: tx } = await flw(`/charges/${chargeId}`);
+  if (!tx || tx.currency !== "NGN") return { paid: false, reason: "not_found" };
+  if (tx.status !== "succeeded") return { paid: false, pending: tx.status === "pending", reason: tx.status };
 
-  const key = decodeRef(tx.tx_ref);
+  const key = decodeRef(tx.reference);
   if (!key) return { paid: false, reason: "unknown_ref" };
 
-  const q = `date=eq.${encodeURIComponent(key.date)}&time=eq.${encodeURIComponent(key.time)}`;
-  const rows = await fetch(`${SUPABASE_URL}/rest/v1/bookings?select=*&${q}&order=created_at.desc&limit=1`, { headers: SB })
-    .then((x) => x.json()).catch(() => []);
-  const b = Array.isArray(rows) ? rows[0] : null;
+  const b = await bookingAt(key.date, key.time);
   if (!b) return { paid: false, reason: "no_booking" };
   if (PAID.includes(b.status)) return { paid: true, already: true };
 
@@ -135,7 +222,7 @@ export async function settle(transactionId) {
       `Style: ${b.style}${b.size ? " · " + b.size : ""}`,
       `Date: ${b.date} at ${b.time}`,
       `Paid: ${naira(amount)} · Expected deposit: ${expected == null ? "couldn't calculate" : naira(expected)}`,
-      `Flutterwave ref: ${tx.flw_ref} (transaction ${tx.id})`,
+      `Flutterwave charge: ${tx.id} · ref ${tx.reference}`,
     ].join("\n"),
   });
 

@@ -159,7 +159,7 @@ export default function December() {
           ))}
           <li>
             <span className="dec-terms__fig">{Math.round(SEASON.depositRate * 100)}%</span>
-            <span><b>Deposit secures it</b>Pay by card, bank transfer or USSD at checkout. Balance on the day.</span>
+            <span><b>Deposit secures it</b>Pay by bank transfer to your own one-off account number; it confirms instantly. Balance on the day.</span>
           </li>
           <li>
             <span className="dec-terms__fig dec-terms__fig--word">Abroad?</span>

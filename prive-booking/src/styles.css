@@ -654,3 +654,7 @@ input[type="date"]::-webkit-calendar-picker-indicator { cursor: pointer; opacity
 .dec-bar { display: block; background: var(--green-deep); color: #F3EEE9; text-align: center; padding: 10px 16px; font-size: 13.5px; }
 .dec-bar b { color: #F2A9C0; font-weight: 600; }
 .dec-bar span { border-bottom: 1px solid rgba(243,238,233,.4); margin-left: 6px; }
+.paycard--live { background: #fff; border-color: var(--green); }
+.paywait { display: flex; align-items: center; justify-content: center; gap: 10px; color: var(--green); font-size: 14px; font-weight: 500; margin: 4px 0 8px; }
+.paywait i { width: 8px; height: 8px; border-radius: 50%; background: var(--pink); animation: decPulse 1.6s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .paywait i { animation: none; } }

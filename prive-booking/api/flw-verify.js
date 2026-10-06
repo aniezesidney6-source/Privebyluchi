@@ -1,6 +1,6 @@
-// Called by the browser after Flutterwave checkout completes. The callback
-// data is only a hint: settle() re-verifies the transaction with Flutterwave
-// and checks the amount before marking the booking paid.
+// Polled by the booking page while the client makes their transfer. settle()
+// re-fetches the charge from Flutterwave and checks the amount before marking
+// the booking paid, so nothing the browser sends is trusted.
 
 import { settle } from "./_flw.js";
 
@@ -12,8 +12,7 @@ export default async function handler(req, res) {
   let body = req.body;
   if (typeof body === "string") { try { body = JSON.parse(body); } catch { body = {}; } }
   try {
-    const out = await settle(body && body.transaction_id);
-    return res.status(200).json(out);
+    return res.status(200).json(await settle(body && body.charge_id));
   } catch {
     return res.status(200).json({ paid: false, reason: "error" });
   }
