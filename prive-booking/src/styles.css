@@ -597,6 +597,7 @@ input[type="date"]::-webkit-calendar-picker-indicator { cursor: pointer; opacity
 .dec-terms__list { list-style: none; }
 .dec-terms__list li { display: grid; grid-template-columns: minmax(150px, 220px) 1fr; gap: 24px; align-items: baseline; padding: 26px 0; border-bottom: 1px solid var(--line); }
 .dec-terms__fig { font-family: var(--head); font-weight: 600; font-size: clamp(30px, 3.6vw, 46px); letter-spacing: -.04em; color: var(--green); line-height: 1; }
+.dec-terms__fig--save { color: var(--pink-deep); }
 .dec-terms__fig--word { font-family: var(--serif); font-style: italic; font-weight: 400; color: var(--pink-deep); }
 .dec-terms__list b { display: block; font-family: var(--head); font-weight: 600; font-size: 17px; color: var(--ink); margin-bottom: 4px; }
 .dec-terms__list span:last-child { color: var(--muted); font-size: 15px; line-height: 1.6; }

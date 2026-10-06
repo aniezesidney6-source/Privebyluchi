@@ -2,7 +2,9 @@ import { useState, useEffect, useRef } from "react";
 import { SERVICES, EXTRAS, TIMES } from "./data";
 import { fmt, BANK, whatsappLink, refCode, normCode, REFERRAL_DISCOUNT } from "./theme";
 import { IconCheck, IconBloom, IconWhatsapp } from "./Icons";
-import { peakFor, depositRateFor } from "./season";
+import { SEASON, seasonFor, earlyDiscountFor, depositRateFor } from "./season";
+
+const SEASON_EARLY = SEASON.earlyDiscount;
 import { payDeposit } from "./pay";
 
 const SUPABASE_URL = "https://vsabwbuzwhxfwqjpiyvs.supabase.co";
@@ -125,11 +127,12 @@ export default function Booking() {
   const availableSizes = isButterfly ? (variant ? service?.variants[variant] : null) : service?.sizes;
   const basePrice = availableSizes && size ? availableSizes[size] || 0 : 0;
   const extraFees = EXTRAS.reduce((sum, e) => sum + (extras[e.key] ? e.price : 0), 0);
-  const peak = peakFor(date);
-  const peakFee = peak && basePrice ? peak.fee : 0;
-  const subtotal = basePrice + extraFees + peakFee;
+  const season = seasonFor(date);
+  const seasonFee = season && basePrice ? season.uplift : 0;
+  const earlyOff = basePrice ? earlyDiscountFor(date) : 0;
+  const subtotal = basePrice + extraFees + seasonFee;
   const discount = refApplied && subtotal > 0 ? REFERRAL_DISCOUNT : 0;
-  const total = Math.max(0, subtotal - discount);
+  const total = Math.max(0, subtotal - earlyOff - discount);
   const depositPct = Math.round(depositRateFor(date) * 100);
   const deposit = Math.round(total * depositRateFor(date));
   const extrasLabel = EXTRAS.filter((e) => extras[e.key]).map((e) => e.label).join(", ") || "None";
@@ -172,7 +175,7 @@ SERVICE DETAILS
 ───────────────
 Service: ${service?.name}${isButterfly && variant ? ` (${variant})` : ""}
 Size / Type: ${size}
-Add-ons: ${extrasLabel}${peak ? `\nPeak date fee (${peak.label}): ${fmt(peakFee)}` : ""}
+Add-ons: ${extrasLabel}${season ? `\n${season.label} pricing: +${fmt(seasonFee)}` : ""}${earlyOff ? `\nEarly-booking discount: −${fmt(earlyOff)}` : ""}
 Total: ${fmt(total)}${refApplied ? ` (referral −${fmt(discount)})` : ""}
 Deposit Due (${depositPct}%): ${fmt(deposit)}${refApplied ? `\nReferred by code: ${normCode(refInput)}` : ""}
 
@@ -240,7 +243,8 @@ Notes: ${form.notes || "None"}
             size: size || null,
             addons: extrasLabel,
             total, deposit, date, time,
-            peak_fee: peakFee || null, peak_label: peak ? peak.label : null,
+            season_fee: seasonFee || null, season_label: season ? season.label : null,
+            early_discount: earlyOff || null,
             referred_by: refApplied ? normCode(refInput) : null,
           }),
         }).catch(() => {});
@@ -448,11 +452,13 @@ Notes: ${form.notes || "None"}
                 </div>
               </div>
 
-              {dateError && <div className="err">✕ This date is fully booked, please choose another day.{peak && <> December dates go fast: <a href="/december#waitlist" style={{ textDecoration: "underline" }}>join the waitlist</a>.</>}</div>}
+              {dateError && <div className="err">✕ This date is fully booked, please choose another day.{season && <> {season.label} dates go fast: <a href="/december#waitlist" style={{ textDecoration: "underline" }}>join the waitlist</a>.</>}</div>}
 
-              {peak && !dateError && (
+              {season && !dateError && (
                 <div className="note peak">
-                  ✦ <span><b>{peak.label} date.</b> December is our busiest month with one chair a day, so this date carries a {fmt(peak.fee)} peak fee and a {depositPct}% deposit secures it. New total: <b>{fmt(total)}</b>.</span>
+                  ✦ <span>{earlyOff
+                    ? <><b>You're booking early, so you save {fmt(earlyOff)}.</b> {season.label} has seasonal pricing, and early bookings get {fmt(earlyOff)} off. Your total: <b>{fmt(total)}</b>{depositPct !== 30 ? `, and ${depositPct}% secures your date` : ""}.</>
+                    : <><b>{season.label} pricing applies.</b> Your total: <b>{fmt(total)}</b>{depositPct !== 30 ? `, and ${depositPct}% secures your date` : ""}. Booking two weeks or more ahead saves {fmt(SEASON_EARLY)}.</>}</span>
                 </div>
               )}
 
@@ -564,7 +570,8 @@ Notes: ${form.notes || "None"}
                   ...(isButterfly && variant ? [["Length Range", variant]] : []),
                   ["Size / Type", size],
                   ["Add-ons", extrasLabel],
-                  ...(peak ? [[`${peak.label} date`, `+ ${fmt(peakFee)}`]] : []),
+                  ...(season ? [[`${season.label} pricing`, `+ ${fmt(seasonFee)}`]] : []),
+                  ...(earlyOff ? [["Early-booking discount 🎉", `− ${fmt(earlyOff)}`]] : []),
                   ...(refApplied ? [["Subtotal", fmt(subtotal)], [`Referral discount (${normCode(refInput)})`, `− ${fmt(discount)}`]] : []),
                   ["Total", fmt(total)],
                 ].map(([l, v]) => (
