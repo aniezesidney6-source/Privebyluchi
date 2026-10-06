@@ -47,7 +47,7 @@ function buildHtml(name, phone, left) {
   return `<!doctype html><html><body style="margin:0;background:${CREAM};">
   <div style="font-family:'Segoe UI',Helvetica,Arial,sans-serif;max-width:540px;margin:0 auto;color:${INK};">
     <div style="background:${GREEN_DEEP};padding:34px 26px 30px;">
-      <div style="font-family:Georgia,serif;font-size:20px;color:#F3EEE9;font-weight:700;">Privé <span style="color:${PINK};">✿</span> by Luchi</div>
+      <div style="line-height:0;"><img src="https://privebyluchi.com/email/logo-cream.png" width="170" height="33" alt="Privé by Luchi" style="display:inline-block;border:0;outline:none;width:170px;height:auto;"></div>
       <div style="font-size:11px;letter-spacing:3px;text-transform:uppercase;color:${PINK};font-weight:700;margin-top:28px;">Early access · 48 hours · clients only</div>
       <div style="font-family:Georgia,serif;font-size:38px;line-height:1.05;color:#F3EEE9;margin-top:12px;">One chair.<br><i style="color:#F2A9C0;">${left}</i> December dates.</div>
     </div>

@@ -125,7 +125,7 @@ function clientHtml(b, amount) {
   const balance = Math.max(0, Number(b.total || 0) - amount);
   return `<!doctype html><html><body style="margin:0;background:${CREAM};">
   <div style="font-family:'Segoe UI',Helvetica,Arial,sans-serif;max-width:520px;margin:0 auto;padding:28px 18px;color:${INK};">
-    <div style="text-align:center;font-family:Georgia,serif;font-size:24px;color:${GREEN};font-weight:700;">Privé <span style="color:${PINK};">✿</span> by Luchi</div>
+    <div style="text-align:center;line-height:0;"><img src="https://privebyluchi.com/email/logo-green.png" width="170" height="33" alt="Privé by Luchi" style="display:inline-block;border:0;outline:none;width:170px;height:auto;"></div>
     <div style="text-align:center;font-size:12px;letter-spacing:2px;text-transform:uppercase;color:${PINK};font-weight:700;margin-top:6px;">Deposit received · Your date is locked</div>
     <p style="font-size:16px;line-height:1.65;margin-top:22px;">Hi ${esc(firstName(b.name))}, we've received your <b>${naira(amount)}</b> deposit. Your ${esc(b.style || "appointment")} on <b>${esc(b.date)}</b> at <b>${esc(b.time)}</b> is officially yours 🌸</p>
     <p style="font-size:16px;line-height:1.65;">Balance on the day: <b>${naira(balance)}</b> plus logistics, which we'll confirm with you on WhatsApp.</p>

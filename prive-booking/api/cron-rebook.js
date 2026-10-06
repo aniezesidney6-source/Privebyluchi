@@ -33,7 +33,7 @@ function buildHtml(name, phone, lastStyle) {
   const code = refCode(phone);
   return `<!doctype html><html><body style="margin:0;background:${CREAM};">
   <div style="font-family:'Segoe UI',Helvetica,Arial,sans-serif;max-width:520px;margin:0 auto;padding:28px 18px;color:${INK};">
-    <div style="text-align:center;font-family:Georgia,serif;font-size:24px;color:${GREEN};font-weight:700;">Privé <span style="color:${PINK};">✿</span> by Luchi</div>
+    <div style="text-align:center;line-height:0;"><img src="https://privebyluchi.com/email/logo-green.png" width="170" height="33" alt="Privé by Luchi" style="display:inline-block;border:0;outline:none;width:170px;height:auto;"></div>
     <div style="text-align:center;font-size:12px;letter-spacing:2px;text-transform:uppercase;color:${PINK};font-weight:700;margin-top:6px;">Time for a fresh style?</div>
     <p style="font-size:16px;line-height:1.65;margin-top:22px;">Hi ${esc(firstName(name))}, it's been about five weeks since your last appointment${lastStyle ? ` (${esc(lastStyle)})` : ""} 🌸</p>
     <p style="font-size:16px;line-height:1.65;">Braids are best taken down around 6 to 8 weeks to keep your natural hair healthy, so now is the perfect time to book your next look. We'll come right to your door.</p>
