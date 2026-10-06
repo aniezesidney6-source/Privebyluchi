@@ -624,6 +624,7 @@ function DecemberSend({ token }) {
   const [info, setInfo] = useState(null); // { recipients, left } once counted
   const [state, setState] = useState(""); // "" | busy | test_sent | sent | error | signin
   const [msg, setMsg] = useState("");
+  const [testTo, setTestTo] = useState("luxuriousluchihairs@gmail.com");
   const call = async (query, method = "GET") => {
     const r = await fetch(`/api/december-announce?${query}`, { method, headers: { Authorization: `Bearer ${token()}` } });
     if (r.status === 401) { setState("signin"); return null; }
@@ -654,18 +655,22 @@ function DecemberSend({ token }) {
         {info ? `${info.left} December dates open · ${info.recipients} past clients to email` : "Email past clients first pick of December"}
       </div>
       <div style={{ fontSize: 14, color: "#CBD8D0", lineHeight: 1.5, marginBottom: 14 }}>
-        Each gets their referral code. Send a test to yourself first, then send to everyone. The homepage banner goes up on 9 October.
+        Each gets their referral code. Send a test to any inbox first, then send to everyone. The homepage banner goes up on 9 October.
       </div>
       {state === "signin" ? (
         <div style={{ fontSize: 14 }}>Your session has expired. Refresh the page and sign in again to send this.</div>
       ) : (
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
-          <button style={btn("transparent", "#fff", "rgba(255,255,255,.4)")} disabled={state === "busy"} onClick={() => run("test=1", "test_sent")}>Send test to me</button>
+          <input
+            type="email" value={testTo} onChange={(e) => setTestTo(e.target.value)} aria-label="Send the test to"
+            style={{ flex: "1 1 220px", minWidth: 0, padding: "11px 14px", borderRadius: 999, border: "1.5px solid rgba(255,255,255,.4)", background: "rgba(255,255,255,.08)", color: "#fff", fontSize: 14, fontFamily: BODY, outline: "none" }}
+          />
+          <button style={btn("transparent", "#fff", "rgba(255,255,255,.4)")} disabled={state === "busy" || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(testTo)} onClick={() => run(`test=1&to=${encodeURIComponent(testTo.trim())}`, "test_sent")}>Send test</button>
           <button style={btn(PINK, "#fff", PINK)} disabled={state === "busy" || !info || state === "sent"} onClick={sendAll}>
             {state === "sent" ? "Sent ✓" : info ? `Send to ${info.recipients} clients` : "Counting…"}
           </button>
           {state === "busy" && <span style={{ fontSize: 13 }}>Sending…</span>}
-          {state === "test_sent" && <span style={{ fontSize: 13 }}>Test sent to your inbox ✓</span>}
+          {state === "test_sent" && <span style={{ fontSize: 13 }}>Test sent to {testTo} ✓ (check Promotions too)</span>}
           {state === "sent" && <span style={{ fontSize: 13 }}>{msg}</span>}
           {state === "error" && <span style={{ fontSize: 13, color: "#F2A9C0" }}>Something went wrong{msg ? `: ${msg}` : ""}</span>}
         </div>
