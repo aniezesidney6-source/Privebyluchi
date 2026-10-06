@@ -616,6 +616,64 @@ const TABS = [
   { id: "dates", label: "Blocked dates", icon: "🚫" },
 ];
 
+/* ---------- December early-access email ---------- */
+// Sends the early-access email to every past client via /api/december-announce.
+// Needs an email sign-in (the server checks the Supabase session); the
+// master password can't authorise a mass send.
+function DecemberSend({ token }) {
+  const [info, setInfo] = useState(null); // { recipients, left } once counted
+  const [state, setState] = useState(""); // "" | busy | test_sent | sent | error | signin
+  const [msg, setMsg] = useState("");
+  const call = async (query, method = "GET") => {
+    const r = await fetch(`/api/december-announce?${query}`, { method, headers: { Authorization: `Bearer ${token()}` } });
+    if (r.status === 401) { setState("signin"); return null; }
+    return r.json();
+  };
+  useEffect(() => {
+    if (!token()) { setState("signin"); return; }
+    call("dry=1").then((d) => d && setInfo(d)).catch(() => {});
+  }, []);
+  const run = async (query, okState) => {
+    setState("busy"); setMsg("");
+    try {
+      const d = await call(query, "POST");
+      if (!d) return;
+      if (d.errors && d.errors.length) { setState("error"); setMsg(d.errors[0]); return; }
+      setState(okState); setMsg(`${d.sent} of ${d.recipients} sent`);
+    } catch { setState("error"); }
+  };
+  const sendAll = () => {
+    if (!info) return;
+    if (window.confirm(`Send the December early-access email to ${info.recipients} past clients now?`)) run("send=1", "sent");
+  };
+  const btn = (bg, col, border) => ({ padding: "11px 18px", borderRadius: 999, border: `1.5px solid ${border}`, background: bg, color: col, fontWeight: 600, fontSize: 14, cursor: "pointer", fontFamily: BODY });
+  return (
+    <div style={{ background: GREEN, color: "#F3EEE9", borderRadius: 18, padding: "20px 22px", marginBottom: 28 }}>
+      <div style={{ fontSize: 11.5, letterSpacing: 2, textTransform: "uppercase", fontWeight: 700, color: "#F2A9C0" }}>December early access</div>
+      <div style={{ fontFamily: HEAD, fontSize: 20, fontWeight: 600, margin: "6px 0 6px", color: "#fff" }}>
+        {info ? `${info.left} December dates open · ${info.recipients} past clients to email` : "Email past clients first pick of December"}
+      </div>
+      <div style={{ fontSize: 14, color: "#CBD8D0", lineHeight: 1.5, marginBottom: 14 }}>
+        Each gets their referral code. Send a test to yourself first, then send to everyone. The homepage banner goes up on 9 October.
+      </div>
+      {state === "signin" ? (
+        <div style={{ fontSize: 14 }}>Sign in with your email and password (not the quick password) to send this.</div>
+      ) : (
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+          <button style={btn("transparent", "#fff", "rgba(255,255,255,.4)")} disabled={state === "busy"} onClick={() => run("test=1", "test_sent")}>Send test to me</button>
+          <button style={btn(PINK, "#fff", PINK)} disabled={state === "busy" || !info || state === "sent"} onClick={sendAll}>
+            {state === "sent" ? "Sent ✓" : info ? `Send to ${info.recipients} clients` : "Counting…"}
+          </button>
+          {state === "busy" && <span style={{ fontSize: 13 }}>Sending…</span>}
+          {state === "test_sent" && <span style={{ fontSize: 13 }}>Test sent to your inbox ✓</span>}
+          {state === "sent" && <span style={{ fontSize: 13 }}>{msg}</span>}
+          {state === "error" && <span style={{ fontSize: 13, color: "#F2A9C0" }}>Something went wrong{msg ? `: ${msg}` : ""}</span>}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function AdminDashboard() {
   const [authed, setAuthed] = useState(false);
   const [tab, setTab] = useState("overview");
@@ -819,6 +877,7 @@ export default function AdminDashboard() {
       <div className="adm-wrap">
         {tab === "overview" && (
           <>
+            <DecemberSend token={() => tokenRef.current} />
             <div style={sectionTitle}>Website Visitors</div>
             <VisitorAnalytics visits={visits} bookings={bookings} loading={visitsLoading} />
           </>
