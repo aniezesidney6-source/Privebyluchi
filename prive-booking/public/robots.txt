@@ -5,22 +5,69 @@ User-agent: *
 Allow: /
 Disallow: /admin
 
-# AI / answer-engine crawlers are welcome on the public site
+# AI / answer-engine crawlers are explicitly welcome on the public site.
+# OpenAI (ChatGPT / ChatGPT Search)
 User-agent: GPTBot
 Allow: /
 User-agent: OAI-SearchBot
 Allow: /
 User-agent: ChatGPT-User
 Allow: /
-User-agent: PerplexityBot
-Allow: /
+
+# Anthropic (Claude)
 User-agent: ClaudeBot
 Allow: /
 User-agent: Claude-Web
 Allow: /
+User-agent: anthropic-ai
+Allow: /
+
+# Perplexity
+User-agent: PerplexityBot
+Allow: /
+User-agent: Perplexity-User
+Allow: /
+
+# xAI (Grok)
+User-agent: xAI-SearchBot
+Allow: /
+User-agent: GrokBot
+Allow: /
+User-agent: xAI-Grok
+Allow: /
+User-agent: Grok-DeepSearch
+Allow: /
+
+# Google (AI Overviews / Gemini) & Apple Intelligence
 User-agent: Google-Extended
 Allow: /
+User-agent: GoogleOther
+Allow: /
+User-agent: Applebot
+Allow: /
 User-agent: Applebot-Extended
+Allow: /
+
+# Microsoft Copilot / Bing, Amazon, Meta, Cohere, DuckDuckGo, Common Crawl, others
+User-agent: Bingbot
+Allow: /
+User-agent: Amazonbot
+Allow: /
+User-agent: Meta-ExternalAgent
+Allow: /
+User-agent: FacebookBot
+Allow: /
+User-agent: cohere-ai
+Allow: /
+User-agent: DuckAssistBot
+Allow: /
+User-agent: CCBot
+Allow: /
+User-agent: Diffbot
+Allow: /
+User-agent: YouBot
+Allow: /
+User-agent: Timpibot
 Allow: /
 
 Sitemap: https://privebyluchi.com/sitemap.xml
