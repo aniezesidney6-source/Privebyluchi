@@ -10,8 +10,7 @@
 // All need  Authorization: Bearer <token>, where the token is CRON_SECRET or a
 // signed-in admin session: Supabase email login or quick-password token.
 
-import { SEASON, seasonDays, maxEarlyPct } from "../src/season.js";
-import { SERVICES } from "../src/data.js";
+import { SEASON, seasonDays } from "../src/season.js";
 import { tokenOk } from "./_admin.js";
 
 const FROM = "Privé by Luchi <bookings@privebyluchi.com>";
@@ -38,11 +37,6 @@ function refCode(phone) {
 function buildHtml(name, phone, left) {
   const code = refCode(phone);
   const pct = Math.round(SEASON.depositRate * 100);
-  const off = maxEarlyPct(SERVICES);
-  const rowS = (l, v, hi) => `<tr><td style="padding:8px 0;color:${MUTED};font-size:14px;border-bottom:1px solid #EFE3E8;">${l}</td>
-     <td style="padding:8px 0;color:${hi ? PINK_DEEP : INK};font-size:14px;font-weight:600;text-align:right;border-bottom:1px solid #EFE3E8;">${v}</td></tr>`;
-  const tiers = rowS("Early-booking discount", `${naira(SEASON.earlyDiscount)} off (up to ${off}%)`, true)
-    + rowS("To qualify", "Book 2+ weeks ahead");
   return `<!doctype html><html><body style="margin:0;background:${CREAM};">
   <div style="font-family:'Segoe UI',Helvetica,Arial,sans-serif;max-width:540px;margin:0 auto;color:${INK};">
     <div style="background:${GREEN_DEEP};padding:34px 26px 30px;">
@@ -55,10 +49,10 @@ function buildHtml(name, phone, left) {
       <p style="font-size:16px;line-height:1.7;margin:0 0 14px;">December bookings open to everyone in 48 hours. Because you've sat in the Privé chair before, you get first pick, today.</p>
       <p style="font-size:16px;line-height:1.7;margin:0 0 14px;">We braid one client a day, so there are only <b>${left}</b> December dates in total. Weddings, owambes, Christmas, flights home: once a date goes, it's gone.</p>
       <div style="background:${PINK};color:#fff;border-radius:14px;padding:16px 18px;text-align:center;margin:0 0 20px;">
-        <div style="font-family:Georgia,serif;font-size:30px;font-weight:700;line-height:1.1;">Up to ${off}% off</div>
-        <div style="font-size:14px;margin-top:6px;">${naira(SEASON.earlyDiscount)} off December prices when you book two weeks or more ahead.</div>
+        <div style="font-family:Georgia,serif;font-size:26px;font-weight:700;line-height:1.1;">One chair a day</div>
+        <div style="font-size:14px;margin-top:6px;">Only ${left} December dates in total. Once a date goes, it's gone.</div>
       </div>
-      <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin-bottom:8px;">${tiers}
+      <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin-bottom:8px;">
         <tr><td style="padding:8px 0;color:${MUTED};font-size:14px;">Deposit to secure</td><td style="padding:8px 0;color:${PINK_DEEP};font-size:14px;font-weight:600;text-align:right;">${pct}%, by card, transfer or USSD</td></tr>
       </table>
       <p style="text-align:center;margin:28px 0;"><a href="https://privebyluchi.com/december" style="background:${PINK};color:#fff;text-decoration:none;font-weight:600;font-size:16px;padding:15px 30px;border-radius:999px;display:inline-block;">See the open dates</a></p>
@@ -131,7 +125,7 @@ export default async function handler(req, res) {
   }
   if (!key) return res.status(500).json({ error: "RESEND_API_KEY not set" });
 
-  const subject = `Up to ${maxEarlyPct(SERVICES)}% off December, and you get first pick ✿`;
+  const subject = `December dates are open, and you get first pick ✿`;
 
   // A test goes to ?to= when given (any address the admin types), else Luchi's inbox.
   const testTo = emailOk(q.to) ? String(q.to).trim() : ADMIN;

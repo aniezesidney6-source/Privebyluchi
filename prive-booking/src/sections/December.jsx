@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import "../styles.css";
 import Logo from "../Logo";
-import { SEASON, seasonDays, isPublic, maxEarlyPct } from "../season";
+import { SEASON, seasonDays, isPublic } from "../season";
 import { SERVICES } from "../data";
 import { fmt, whatsappLink } from "../theme";
 import { trackVisit } from "../track";
@@ -110,8 +110,8 @@ export default function December() {
         <div className="dec-cal__head">
           <h2>December, <em>day by day</em></h2>
           <div className="dec-legend">
-            <span className="hot"><b>Book early, save {fmt(SEASON.earlyDiscount)}</b> up to {maxEarlyPct(SERVICES)}% off</span>
-            <span>Two weeks or more ahead</span>
+            <span className="hot"><b>Festive weeks</b> fill first</span>
+            <span>One chair a day</span>
           </div>
         </div>
 
@@ -142,20 +142,16 @@ export default function December() {
       {/* ── III. The terms, plainly ──────────────────── */}
       <section className="dec-terms">
         <div className="dec-terms__lede">
-          <h2>Book early, <em>save more</em></h2>
+          <h2>Simple, <em>festive-season</em> terms</h2>
           <p>
-            Our December discount: book your date at least two weeks ahead and {fmt(SEASON.earlyDiscount)} comes
-            straight off, up to {maxEarlyPct(SERVICES)}% off your style. A {Math.round(SEASON.depositRate * 100)}% deposit locks it in.
+            December and January carry seasonal pricing, and a {Math.round(SEASON.depositRate * 100)}% deposit locks in
+            your date. One chair a day, so the dates that are open are the dates that are left.
           </p>
         </div>
         <ol className="dec-terms__list">
           <li>
-            <span className="dec-terms__fig dec-terms__fig--save">−{fmt(SEASON.earlyDiscount)}</span>
-            <span><b>Early-booking discount</b>Up to {maxEarlyPct(SERVICES)}% off when you book two weeks or more ahead. Applied automatically.</span>
-          </li>
-          <li>
             <span className="dec-terms__fig">+{fmt(SEASON.uplift)}</span>
-            <span><b>December &amp; January pricing</b>Added to your usual style price, before your discount.</span>
+            <span><b>December &amp; January pricing</b>Added to your usual style price.</span>
           </li>
           <li>
             <span className="dec-terms__fig">{Math.round(SEASON.depositRate * 100)}%</span>

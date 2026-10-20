@@ -3,8 +3,6 @@ import { SERVICES, EXTRAS, TIMES } from "./data";
 import { fmt, BANK, whatsappLink, refCode, normCode, REFERRAL_DISCOUNT } from "./theme";
 import { IconCheck, IconBloom, IconWhatsapp } from "./Icons";
 import { SEASON, seasonFor, earlyDiscountFor, depositRateFor } from "./season";
-
-const SEASON_EARLY = SEASON.earlyDiscount;
 import { payDeposit } from "./pay";
 
 const SUPABASE_URL = "https://vsabwbuzwhxfwqjpiyvs.supabase.co";
@@ -456,9 +454,7 @@ Notes: ${form.notes || "None"}
 
               {season && !dateError && (
                 <div className="note peak">
-                  ✦ <span>{earlyOff
-                    ? <><b>You're booking early, so you save {fmt(earlyOff)}.</b> {season.label} has seasonal pricing, and early bookings get {fmt(earlyOff)} off. Your total: <b>{fmt(total)}</b>{depositPct !== 30 ? `, and ${depositPct}% secures your date` : ""}.</>
-                    : <><b>{season.label} pricing applies.</b> Your total: <b>{fmt(total)}</b>{depositPct !== 30 ? `, and ${depositPct}% secures your date` : ""}. Booking two weeks or more ahead saves {fmt(SEASON_EARLY)}.</>}</span>
+                  ✦ <span><b>{season.label} pricing applies.</b> Your total: <b>{fmt(total)}</b>{depositPct !== 30 ? `, and ${depositPct}% secures your date` : ""}.</span>
                 </div>
               )}
 

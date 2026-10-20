@@ -8,7 +8,10 @@
 export const SEASON = {
   months: ["2026-12", "2027-01"],
   uplift: 30000,
-  earlyDiscount: 10000,
+  // Early-booking discount is OFF for now (set back to 10000 to re-enable it
+  // everywhere — booking total, payment, receipts and the /december copy all
+  // read from here). With 0, no discount is applied or shown.
+  earlyDiscount: 0,
   earlyDays: 14, // book at least this many days ahead to get the discount
   // The /december page and its early-access email.
   year: 2026,
