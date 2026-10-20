@@ -1,12 +1,16 @@
-// ── Seasonal pricing (December + January) ──────────────
-// December and January carry seasonal pricing: +₦30,000 on every style, with
-// ₦10,000 off for anyone booking at least two weeks ahead (last-minute
-// bookings pay the full price, so the discount is real). December also takes
-// a 50% deposit. The booking flow, the /december page, emails and the
+// ── Seasonal pricing (festive window) ──────────────────
+// The festive window (23 December to the second week of January) carries
+// +₦30,000 on every style. Dates outside it are priced normally. December
+// dates inside the window take a 50% deposit. The early-booking discount is
+// OFF (earlyDiscount: 0). The booking flow, the /december page, emails and the
 // server-side payment check all read from this file.
 
 export const SEASON = {
-  months: ["2026-12", "2027-01"],
+  // Festive uplift applies ONLY within this date window (inclusive):
+  // 23 December through the second week of January. Dates outside it (e.g.
+  // early December or late January) are priced normally.
+  start: "2026-12-23",
+  end: "2027-01-14",
   uplift: 30000,
   // Early-booking discount is OFF for now (set back to 10000 to re-enable it
   // everywhere — booking total, payment, receipts and the /december copy all
@@ -32,7 +36,8 @@ const MONTH_NAMES = { "01": "January", "12": "December" };
 // "2026-12-21" → { uplift, label } or null outside the season.
 export function seasonFor(date) {
   const m = /^(\d{4})-(\d{2})-\d{2}$/.exec(date || "");
-  if (!m || !SEASON.months.includes(`${m[1]}-${m[2]}`)) return null;
+  // YYYY-MM-DD compares lexicographically = chronologically.
+  if (!m || date < SEASON.start || date > SEASON.end) return null;
   return { uplift: SEASON.uplift, label: MONTH_NAMES[m[2]] || "Seasonal" };
 }
 

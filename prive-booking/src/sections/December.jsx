@@ -144,14 +144,14 @@ export default function December() {
         <div className="dec-terms__lede">
           <h2>Simple, <em>festive-season</em> terms</h2>
           <p>
-            December and January carry seasonal pricing, and a {Math.round(SEASON.depositRate * 100)}% deposit locks in
+            The festive window, 23 December to mid-January, carries seasonal pricing, and a {Math.round(SEASON.depositRate * 100)}% deposit locks in
             your date. One chair a day, so the dates that are open are the dates that are left.
           </p>
         </div>
         <ol className="dec-terms__list">
           <li>
             <span className="dec-terms__fig">+{fmt(SEASON.uplift)}</span>
-            <span><b>December &amp; January pricing</b>Added to your usual style price.</span>
+            <span><b>Festive-window pricing</b>Added to your usual style price on dates from 23 December to mid-January. Earlier December dates are normal price.</span>
           </li>
           <li>
             <span className="dec-terms__fig">{Math.round(SEASON.depositRate * 100)}%</span>
